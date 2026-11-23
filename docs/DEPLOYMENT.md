@@ -30,7 +30,9 @@ Accounts werken zonder extra configuratie: als `RESEND_API_KEY` ontbreekt, toont
 2. Zet `ZERON_EMAIL_FROM` op een geverifieerd afzenderadres (bijv. `ZERON <verification@joudomein.nl>`).
 3. Zet `ZERON_BASE_URL` op `https://zeron-one.vercel.app` (of je custom domein), zodat de link in de mail naar productie wijst.
 
-De key wordt nooit gelogd of naar de client gestuurd. Tokens (24 u) en sessies (30 d) worden alleen als hash opgeslagen.
+Een key maak je aan in het Resend-dashboard via **API Keys → Create API Key** (scope: sending). Het afzenderadres moet een geverifieerd domein zijn: **Domains → Add Domain**, voeg de getoonde DNS-records toe bij je domeinprovider en wacht tot de status *Verified* is. `onboarding@resend.dev` is alleen bruikbaar voor testadressen; voor echte spelers heb je een eigen geverifieerd domein nodig.
+
+De key wordt nooit gelogd of naar de client gestuurd. Tokens (24 u) en sessies (30 d) worden alleen als hash opgeslagen. Zonder key blijft de directe verificatieknop werken.
 
 ### Automatisch deployen bij pushes
 

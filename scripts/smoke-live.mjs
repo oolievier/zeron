@@ -60,7 +60,9 @@ const leaked = Object.keys(hidden.room.answers || {}).some((id) => id !== guestI
 if (leaked) throw new Error('Answers leaked before reveal');
 
 const revealed = await post({ action: 'reveal', code, playerId: hostId });
-if (revealed.room.phase !== 'reveal' || Object.keys(revealed.room.answers).length !== 2) throw new Error('Reveal failed');
+if (revealed.room.phase !== 'reveal' || Object.keys(revealed.room.answers).length !== 2) {
+  throw new Error(`Reveal failed: phase=${revealed.room.phase} v=${revealed.room.version} answers=${JSON.stringify(Object.keys(revealed.room.answers || {}))}`);
+}
 const good = revealed.room.answers[hostId];
 const bad = revealed.room.answers[guestId];
 if (source && !(good.points > 0)) throw new Error(`Listed answer scored ${good.points}`);
