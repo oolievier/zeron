@@ -319,6 +319,8 @@ function clockBar(endAt, totalSeconds) {
 function renderSoloGame() {
   const game = state.solo;
   if (!game) return go('/setup');
+  // Oude opgeslagen runs hebben nog geen pogingenteller.
+  if (!Number.isFinite(game.attempt)) game.attempt = 0;
   const question = game.questions[game.index];
   const progress = game.questions.map((_, index) => `<i class="${index < game.index ? 'done' : index === game.index ? 'current' : ''}"></i>`).join('');
   const last = game.answers.at(-1);
