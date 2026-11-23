@@ -10,7 +10,7 @@ export const storageMode = token ? 'blob' : 'memory';
 
 export async function readJSON(path) {
   if (!token) return memory.has(path) ? JSON.parse(memory.get(path)) : null;
-  const blob = await get(path, { token });
+  const blob = await get(path, { token, access: 'private' });
   if (!blob) return null;
   const text = await blob.text();
   return text ? JSON.parse(text) : null;
