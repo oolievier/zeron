@@ -51,7 +51,15 @@ if (started.room.phase !== 'question' || !started.room.question) throw new Error
 // Kies een lijstantwoord van de echte vraag, zodat de score-asserties betekenis hebben.
 const source = QUESTIONS.find((item) => item.id === started.room.question.id);
 await post({ action: 'answer', code, playerId: hostId, answer: source ? source.common[0] : 'ballon' });
-await post({ action: 'answer', code, playerId: guestId, answer: 'flubberkabouter9000' });
+// Eén fout antwoord mag de ronde niet sluiten: de speler houdt pogingen over.
+for (let attempt = 1; attempt <= 3; attempt++) {
+  const retry = await post({ action: 'answer', code, playerId: guestId, answer: `foutpoging${attempt}xyz` });
+  const own = retry.room.answers[guestId];
+  if (retry.room.phase !== 'question' || own?.pending !== true || own?.attemptsLeft !== 4 - attempt) {
+    throw new Error(`Retry failed: ${JSON.stringify(own)}`);
+  }
+}
+console.log('retries OK: 3 wrong attempts kept the round open');
 
 const hidden = await json(`/api/room?code=${code}&playerId=${guestId}`);
 // De server mag al auto-revealen (1,2 s), maar vóór de reveal mag nooit een
