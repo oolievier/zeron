@@ -2,7 +2,7 @@
 
 **Rare answers only.** Een zelfgebouwd cyberpunk partyspel waarin je niet het *goede* antwoord zoekt, maar het antwoord dat niemand anders bedenkt.
 
-ZERON is een eigen interpretatie van drie bestaande spellen — [PlayAscent](http://playascent.online/), [Krillion](https://krillion.io) en [PlayPlain](https://playplain.app) — met een volledig eigen UI, eigen scoring-engine, een vragenbibliotheek van 224+ vragen, online kamers voor vrienden en een formulier waarmee spelers zelf vragen kunnen insturen.
+ZERON is een eigen interpretatie van drie bestaande spellen — [PlayAscent](http://playascent.online/), [Krillion](https://krillion.io) en [PlayPlain](https://playplain.app) — met een volledig eigen UI, eigen scoring-engine, een vragenbibliotheek van 224 vragen met gemiddeld 26 geaccepteerde antwoorden per vraag, online kamers voor vrienden en een formulier waarmee spelers zelf vragen kunnen insturen.
 
 > Geen affiliate van de originele spellen. Alle code, vormgeving en copy in deze repo is nieuw geschreven. De analyses van de originele sites staan in [`docs/source-analysis/`](docs/source-analysis/).
 
@@ -18,6 +18,8 @@ ZERON is een eigen interpretatie van drie bestaande spellen — [PlayAscent](htt
 | **Account** | E-mail + wachtwoord, e-mailverificatie, profiel en server-side statistieken. Gastspel kan gewoon. |
 
 De UI heeft een eigen bewegingslaag: periodieke glitch-bursts, een `SIGNAL SHIFT`-transitie tussen schermen en vragen, neon-scorebuizen die meegroeien met je punten en duidelijke rode `Fout`-schermen bij antwoorden die niet in de lijst staan. Animaties zijn decoratief, blokkeren de gameplay niet en respecteren `prefers-reduced-motion`.
+
+Een fout antwoord stopt de vraag niet: je hebt vier pogingen binnen dezelfde timer. Pas bij een geldig antwoord, uitgeputte pogingen of tijd verstrijken gaat de reveal open. Zie [`docs/SCORING.md`](docs/SCORING.md) voor de volledige regels.
 
 ## Snel starten
 

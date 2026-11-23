@@ -108,11 +108,20 @@ await page.locator('[data-act="account-logout"]').click();
 await page.waitForSelector('#login-form');
 console.log('logout OK');
 
-// Fout antwoord: moet 0 punten en een rood Fout-label tonen.
+// Fout antwoord: eerst drie retries in dezelfde vraag, pas daarna rood Fout-label.
 await page.goto(`${base}/#/setup`, { waitUntil: 'networkidle' });
 await page.locator('input[value="blitz"]').check();
 await page.locator('button[type="submit"]').click();
 await page.waitForSelector('#answer-input');
+for (const left of ['3', '2', '1']) {
+  await page.locator('#answer-input').fill('deze bestaat echt niet');
+  await page.locator('#answer-form button[type="submit"]').click();
+  await page.waitForFunction(
+    (expected) => document.querySelector('.retry-count')?.textContent.trim().startsWith(expected),
+    left,
+  );
+}
+await shot('retry-feedback');
 await page.locator('#answer-input').fill('deze bestaat echt niet');
 await page.locator('#answer-form button[type="submit"]').click();
 await page.waitForSelector('.wrong-card');

@@ -1,5 +1,6 @@
 import { QUESTIONS } from '../../src/data/questions.js';
-import { normalize, scoreAnswer, seededShuffle } from '../../src/lib/scoring.js';
+import { expandQuestion } from '../../src/data/answer-banks.js';
+import { normalize, scoreAnswer, seededShuffle, wrongLabel, MAX_ANSWER_ATTEMPTS } from '../../src/lib/scoring.js';
 import { readJSON, writeJSONConfirmed, listPaths } from './store.js';
 
 const CODE_ALPHABET = 'ACDEFGHJKLMNPQRTUVWXY3479';
@@ -27,7 +28,7 @@ async function communityQuestions() {
   const items = await Promise.all(paths.map((path) => readJSON(path).catch(() => null)));
   return items
     .filter((item) => item?.status === 'live' && item.question?.prompt)
-    .map((item) => item.question);
+    .map((item) => expandQuestion(item.question));
 }
 
 function allQuestions(community = []) {
@@ -63,9 +64,12 @@ function publicQuestion(question) {
 
 function finalizeRound(room, now) {
   const question = findQuestion(room);
-  const answers = room.roundAnswers?.[room.round] || {};
-  const entries = Object.entries(answers);
-  const peers = entries.map(([, value]) => normalize(value.text));
+  const stored = room.roundAnswers?.[room.round] || {};
+  // Alleen geaccepteerde antwoorden tellen als peers voor de echo-bonus.
+  const acceptedTexts = room.players
+    .map((player) => stored[player.id])
+    .filter((entry) => entry?.accepted)
+    .map((entry) => normalize(entry.text));
   const historyEntry = {
     questionId: question?.id || null,
     question: publicQuestion(question),
@@ -73,28 +77,38 @@ function finalizeRound(room, now) {
     at: now,
   };
 
-  for (const [playerId, answer] of entries) {
-    const otherPeers = peers.filter((_, index) => entries[index][0] !== playerId);
-    const result = scoreAnswer({
-      raw: answer.text,
-      question: question || {},
-      peerAnswers: otherPeers,
-    });
-    const points = result.ok ? result.points : 0;
-    const player = room.players.find((item) => item.id === playerId);
-    if (player) {
-      player.score += points;
-      player.streak = points >= 75 ? player.streak + 1 : 0;
-    }
-    historyEntry.answers[playerId] = {
-      text: answer.text,
+  for (const player of room.players) {
+    const entry = stored[player.id];
+    const accepted = Boolean(entry?.accepted);
+    const text = entry?.text || '';
+    const otherPeers = acceptedTexts.filter((_, index) => room.players[index].id !== player.id);
+    // Spelers zonder geldig antwoord (timeout of uitgeputte pogingen) krijgen
+    // expliciet 0 punten en een rood label — nooit een pseudo-rarity.
+    const result = accepted
+      ? scoreAnswer({ raw: text, question: question || {}, peerAnswers: otherPeers })
+      : {
+          ok: false,
+          wrong: true,
+          points: 0,
+          reason: entry?.final ? entry.reason || 'NOT_IN_LIST' : 'TIMEOUT',
+          normalized: normalize(text),
+          corrected: null,
+          label: wrongLabel(),
+          notes: entry?.final ? ['ANTWOORD NIET IN LIJST', 'POGINGEN UITGEPUT'] : ['CLOCK EXPIRED'],
+          duplicateCount: 0,
+        };
+    player.score += result.points;
+    player.streak = result.points >= 75 ? player.streak + 1 : 0;
+    historyEntry.answers[player.id] = {
+      text: text || (room.settings.lang === 'en' ? 'NO ANSWER' : 'GEEN ANTWOORD'),
       normalized: result.normalized,
       corrected: result.corrected,
-      points,
+      points: result.points,
       label: result.label,
       wrong: Boolean(result.wrong),
       notes: result.notes || [],
       reason: result.reason || null,
+      attempts: entry?.attempts?.length || 0,
     };
   }
 
@@ -250,10 +264,28 @@ export async function act(payload) {
       const text = String(payload.answer ?? '').trim();
       if (!text || text.length > 60) return { error: 400, message: 'Antwoord moet 1–60 tekens zijn.' };
       room.roundAnswers[room.round] ||= {};
-      if (room.roundAnswers[room.round][playerId]) return { write: false };
-      room.roundAnswers[room.round][playerId] = { text, at: now };
-      const answered = Object.keys(room.roundAnswers[room.round]).length;
-      if (answered >= room.players.length) room.roundEndsAt = now + 1200;
+      const previous = room.roundAnswers[room.round][playerId];
+      if (previous?.final) return { write: false };
+
+      const peers = Object.entries(room.roundAnswers[room.round])
+        .filter(([id, value]) => id !== playerId && value?.accepted)
+        .map(([, value]) => normalize(value.text));
+      const result = scoreAnswer({ raw: text, question: findQuestion(room) || {}, peerAnswers: peers });
+      const attempts = [...(previous?.attempts || []), { text, at: now, ok: Boolean(result.ok), reason: result.reason || null }];
+      room.roundAnswers[room.round][playerId] = {
+        text,
+        at: now,
+        attempts,
+        accepted: Boolean(result.ok),
+        final: Boolean(result.ok) || attempts.length >= MAX_ANSWER_ATTEMPTS,
+        reason: result.ok ? null : result.reason,
+      };
+      // De ronde pas vervroegen als iedereen klaar is: een speler die nog
+      // mag herproberen houdt de klok dus gewoon lopen.
+      const values = Object.values(room.roundAnswers[room.round]);
+      if (values.length >= room.players.length && values.every((value) => value?.final)) {
+        room.roundEndsAt = now + 1200;
+      }
       return null;
     }, playerId);
   }
@@ -323,13 +355,23 @@ export function publicRoom(room, playerId) {
     ? { ...publicQuestion(findQuestion(room)), index: room.round }
     : null;
   const isReveal = room.phase === 'reveal' || room.phase === 'finished';
+  const own = room.roundAnswers[room.round]?.[playerId];
+  const attemptsUsed = own?.attempts?.length || 0;
   const currentAnswers = isReveal
     ? room.history[room.round]?.answers || {}
-    : {
-        ...(room.roundAnswers[room.round]?.[playerId]
-          ? { [playerId]: { text: room.roundAnswers[room.round][playerId].text, pending: true } }
-          : {}),
-      };
+    : own
+      ? {
+          [playerId]: {
+            text: own.text,
+            pending: !own.final,
+            accepted: Boolean(own.accepted),
+            final: Boolean(own.final),
+            attemptsUsed,
+            attemptsLeft: Math.max(0, MAX_ANSWER_ATTEMPTS - attemptsUsed),
+            lastReason: own.attempts?.at(-1)?.reason || null,
+          },
+        }
+      : {};
 
   return {
     code: room.code,
@@ -357,7 +399,7 @@ export function publicRoom(room, playerId) {
       score: player.score,
       streak: player.streak,
       isHost: player.id === room.hostId,
-      hasAnswered: Boolean(room.roundAnswers[room.round]?.[player.id]),
+      hasAnswered: Boolean(room.roundAnswers[room.round]?.[player.id]?.final),
     })),
     answers: currentAnswers,
     history: room.phase === 'finished' ? room.history : null,

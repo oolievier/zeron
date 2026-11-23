@@ -44,7 +44,17 @@ Afgewezen worden: lege antwoorden, >60 tekens, geen alfanumeriek teken, `aaaaaaa
 }
 ```
 
-In solo wordt het fout antwoord genoteerd met **0 punten** en een rood `FANT`/`WRONG`-scherm; de speler ziet de regel en de reden. In kamers gebruikt de server dezelfde uitkomst: de reveal toont `Fout`, 0 punten en geen bonus. Timeouts en lege antwoorden krijgen hetzelfde rode label.
+In solo wordt een **definitief** fout antwoord genoteerd met **0 punten** en een rood `Fout`/`WRONG`-scherm; de speler ziet de regel en de reden. In kamers gebruikt de server dezelfde uitkomst: de reveal toont `Fout`, 0 punten en geen bonus. Timeouts en lege antwoorden krijgen hetzelfde rode label.
+
+### 4b. Antwoordlijsten en retries
+
+Iedere vraag heeft een brede lijst: de handgeschreven basis (3 common + 3 rare) wordt aangevuld uit [`src/data/expansions/`](../src/data/expansions/) tot **gemiddeld 26 antwoorden per vraag** (minimaal 24). De lijst is vraagspecifiek: bij een kleurvraag staan alleen kleuren, bij een wachtwoordvraag alleen slechte wachtwoorden. In [`src/data/answer-banks.js`](../src/data/answer-banks.js) zit een generieke sector/tag-bank als terugval voor ingezonden communityvragen. Elk lijstantwoord wordt door de engine geaccepteerd (getest in `tests/scoring.test.js`).
+
+Een antwoord dat niet in de lijst staat, is fout — maar **beëindigt de vraag niet direct**. De speler krijgt `MAX_ANSWER_ATTEMPTS = 4` pogingen (eerste poging + 3 retries) binnen dezelfde timer:
+
+- Solo: rood `FOUT — SIGNALEN HERSTELLEN`-veld, ingevuld antwoord wissen, veld opnieuw focusen. De klok (`endsAt`) loopt door; pas bij een geldig antwoord, de vierde fout of het verstrijken van de tijd verschijnt de reveal.
+- Kamer: de server slaat elke poging op in `roundAnswers[round][playerId].attempts`, inclusief de reden. Alleen de eigen speler ziet `attemptsLeft` en de laatste fout; andere spelers zien pas `hasAnswered` als het antwoord definitief is. De ronde wordt niet vervroegd zolang iemand nog mag herproberen.
+- Punten blijven gelijk aan de eerste geldige poging: retries kosten **geen** punten, maar wel tijd en pogingen. Bij uitputting of timeout: 0 punten, `wrong:true`, rood label.
 
 ## 5. Puntberekening
 

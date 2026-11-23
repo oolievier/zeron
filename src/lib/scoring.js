@@ -4,6 +4,9 @@
 const DIACRITICS = /[\u0300-\u036f]/g;
 const ALLOWED = /[^a-z0-9\s'-]/g;
 
+// Eerste poging + drie retries. Gedeeld door solo, kamer-API en tests.
+export const MAX_ANSWER_ATTEMPTS = 4;
+
 // Alleen antwoorden uit de lijst tellen mee; één typfout mag gecorrigeerd worden.
 const DEFAULT_RULE_HINT = 'Antwoord moet in de antwoordlijst van dit signaal staan; één typfout wordt gecorrigeerd.';
 

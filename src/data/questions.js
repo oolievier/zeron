@@ -2,6 +2,7 @@
 // 28 vragen per categorie (14 NL + 14 EN), verdeeld over 8 categorieën.
 
 import { answerRule } from '../lib/scoring.js';
+import { expandQuestion } from './answer-banks.js';
 
 export const CATEGORIES = {
   SIGNAL: { label: "Signaal", color: "#39FF14", icon: "📡" },
@@ -1617,9 +1618,10 @@ const RAW_QUESTIONS = [
   },
 ];
 
-// Elke vraag krijgt een expliciete regel. Bestaande vragen met een eigen rule
-// behouden die velden; answerRule vult alleen ontbrekende hints en de sectorhint in.
-export const QUESTIONS = RAW_QUESTIONS.map((question) => ({
-  ...question,
-  rule: answerRule(question),
-}));
+// Elke vraag krijgt een brede antwoordlijst en een expliciete regel. Bestaande
+// vragen met een eigen rule behouden die velden; answerRule vult alleen
+// ontbrekende hints en de sectorhint in.
+export const QUESTIONS = RAW_QUESTIONS.map((question) => {
+  const expanded = expandQuestion(question);
+  return { ...expanded, rule: answerRule(expanded) };
+});

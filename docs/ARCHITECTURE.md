@@ -35,7 +35,7 @@ Een kamer (`rooms/<code>.json`) bevat:
 | `questionIds`, `community` | gekozen deck + snapshot van communityvragen |
 | `phase` | `lobby` → `question` → `reveal` → … → `finished` |
 | `round`, `roundStartsAt`, `roundEndsAt`, `revealUntil` | serverklok |
-| `roundAnswers[round]` | ruwe antwoorden (alleen zichtbaar voor de eigen speler) |
+| `roundAnswers[round]` | pogingen per speler: `attempts[]`, `accepted`, `final`, laatste `text` (alleen zichtbaar voor de eigen speler) |
 | `history[round]` | scoring-resultaten na de reveal |
 | `version`, `updatedAt` | eenvoudige revisieteller |
 
@@ -44,13 +44,13 @@ Transities worden **server-side** afgedwongen in `advance()` bij elke lees- of s
 - `question` → `reveal` zodra `now >= roundEndsAt`;
 - `reveal` → volgende `question` (of `finished`) zodra `now >= revealUntil` (7 seconden).
 
-Als alle spelers hebben geantwoord wordt `roundEndsAt` vervroegd naar `now + 1200 ms`. De host kan vervroegd onthullen; niet-hosts kunnen dat niet.
+Een fout antwoord is geen definitief antwoord: de server bewaart de poging en geeft de speler maximaal 4 pogingen (`MAX_ANSWER_ATTEMPTS`) binnen dezelfde timer. Alleen als alle spelers een `final` antwoord hebben (geldig of uitgeput) wordt `roundEndsAt` vervroegd naar `now + 1200 ms`. De host kan vervroegd onthullen; niet-hosts kunnen dat niet. Bij timeout scoren ontbrekende of niet-geaccepteerde antwoorden 0 punten met een rood `wrong`-label.
 
 ### Openbare projectie
 
 `publicRoom()` is de enige uitvoer naar clients. Het:
 
-- verbergt alle antwoorden van andere spelers tijdens `question` (alleen het eigen antwoord wordt teruggegeven);
+- verbergt alle antwoorden van andere spelers tijdens `question` (alleen de eigen pogingen komen terug, met `attemptsLeft` en de laatste foutreden);
 - verbergt `common`/`rare` antwoordlijsten, `questionIds`, `community` en de ruwe kamerstructuur;
 - geeft `clock.now` mee, zodat de client klok-skew kan compenseren;
 - levert `leaderboard` en (alleen in `finished`) de volledige `history`;

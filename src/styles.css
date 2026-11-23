@@ -441,6 +441,16 @@ body.is-shifting #app { filter: saturate(1.4) blur(1px); transition: filter .26s
 .rule-line span { font: 700 9px var(--mono); letter-spacing: .2em; color: var(--cyan); white-space: nowrap; }
 .rule-line p { margin: 0; font-size: 11px; line-height: 1.6; color: var(--muted); }
 
+/* Retry-feedback: rood, maar niet het einde van de vraag. */
+.retry-feedback { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 14px 0 0; padding: 10px 12px; border: 1px solid rgba(255,66,93,.5); border-left: 3px solid var(--red); background: linear-gradient(90deg, rgba(255,66,93,.13), rgba(255,66,93,.02)); animation: retryIn .28s ease-out both; }
+.retry-feedback .retry-title { grid-column: 1 / -1; color: var(--red); font: 800 9px var(--mono); letter-spacing: .2em; }
+.retry-feedback .retry-text { color: #ffd7de; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.retry-feedback .retry-count { align-self: center; color: var(--red); font: 700 10px var(--mono); letter-spacing: .1em; white-space: nowrap; }
+.retry-shake { animation: retryShake .32s ease-out both; }
+.retry-shake #answer-input { border-color: var(--red); box-shadow: 0 0 18px rgba(255,66,93,.18); }
+@keyframes retryIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes retryShake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 60% { transform: translateX(4px); } 80% { transform: translateX(-2px); } }
+
 /* Account-schermen. */
 .account-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .account-grid .form-panel:nth-child(2) { animation-delay: .1s; }

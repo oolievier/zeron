@@ -2,7 +2,7 @@
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 import { act, getRoom } from '../api/lib/rooms.js';
-import { CATEGORIES } from '../src/data/questions.js';
+import { CATEGORIES, QUESTIONS } from '../src/data/questions.js';
 
 const base = process.env.QA_BASE || 'http://localhost:4173';
 const out = '/tmp/opencode/zeron-shots';
@@ -60,9 +60,12 @@ await host.waitForFunction(() => document.querySelectorAll('.player-row').length
 await host.locator('[data-act="room-start"]').click();
 await host.waitForSelector('#answer-input');
 await guest.waitForSelector('#answer-input');
-await host.locator('#answer-input').fill('ballon');
+const current = (await getRoom(code)).room;
+const question = QUESTIONS.find((item) => item.id === current.question?.id);
+if (!question) throw new Error('room question not found');
+await host.locator('#answer-input').fill(question.common[0]);
 await host.locator('#room-answer-form button[type="submit"]').click();
-await guest.locator('#answer-input').fill('een gerucht');
+await guest.locator('#answer-input').fill(question.rare[0]);
 await guest.locator('#room-answer-form button[type="submit"]').click();
 await host.waitForSelector('.locked-answer');
 await host.screenshot({ path: `${out}/room-question.png`, fullPage: true });

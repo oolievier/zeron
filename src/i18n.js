@@ -38,6 +38,7 @@ const NL = {
   'how.solo': 'SOLO', 'how.soloBody': 'Kies daily of blitz. Je krijgt 25 seconden per vraag. De dagelijkse run gebruikt een vaste seed, zodat iedereen dezelfde vragen krijgt.',
   'how.party': 'PARTY', 'how.partyBody': 'De host maakt een kamer en deelt de code. Antwoorden blijven verborgen tot iedereen heeft ingediend of de tijd voorbij is. De server bewaakt de klok.',
   'how.community': 'COMMUNITY', 'how.communityBody': 'Eigen vragen worden direct toegevoegd aan de gedeelde bibliotheek en kunnen in elke run verschijnen.',
+  'how.retry': 'VIER POGINGEN', 'how.retryBody': 'Elke vraag heeft tientallen geldige antwoorden. Staat je antwoord niet in de lijst, dan gaat de vraag niet door: je krijgt rood feedback en mag binnen de tijd nog drie keer proberen. Pas na je laatste poging of bij tijdverstrijken verschijnt de uitslag (0 punten).',
   'common.back': 'TERUG', 'common.close': 'SLUITEN', 'common.loading': 'VERBINDEN MET GRID…', 'common.error': 'Verbinding mislukt.',
   'common.offline': 'API niet bereikbaar — solo werkt lokaal, party niet.', 'common.cancel': 'ANNULEREN',
   'result.points': 'PUNTEN', 'result.copy': 'KOPIEER',
@@ -55,7 +56,9 @@ const NL = {
   'account.best': 'BESTE SCORE', 'account.plays': 'RUNS', 'account.streak': 'STREAK', 'account.member': 'LID SINDS',
   'account.profile': 'PROFIEL', 'account.localOnly': 'Je speelt met een lokaal profiel.',
   'wrong.title': 'Fout', 'wrong.body': 'Dit antwoord staat niet in de antwoordlijst van dit signaal.',
-  'wrong.rule': 'REGEL', 'wrong.allowed': 'TOEGESTAAN', 'wrong.tryAgain': 'Een typfout wordt automatisch hersteld als het antwoord daardoor wél klopt.',
+  'wrong.rule': 'REGEL', 'wrong.allowed': 'TOEGESTAAN', 'wrong.tryAgain': 'Geen pogingen meer. Een typfout wordt automatisch hersteld als het antwoord daardoor wél klopt.',
+  'retry.title': 'FOUT — SIGNALEN HERSTELLEN', 'retry.hint': 'Niet in de antwoordlijst. Probeer een ander antwoord.',
+  'retry.left': 'pogingen over', 'retry.attempt': 'POGING', 'retry.exhausted': 'GEEN POGINGEN MEER',
   'transition.shift': 'SIGNAL SHIFT', 'score.altitude': 'SCORE HOOGTE', 'score.peak': 'PIEK',
 };
 
@@ -99,6 +102,7 @@ const EN = {
   'how.solo': 'SOLO', 'how.soloBody': 'Pick daily or blitz. You get 25 seconds per question. The daily run uses a fixed seed so everyone gets the same questions.',
   'how.party': 'PARTY', 'how.partyBody': 'The host creates a room and shares the code. Answers stay hidden until everyone submits or time runs out. The server owns the clock.',
   'how.community': 'COMMUNITY', 'how.communityBody': 'Your own questions are added to the shared library and can appear in any run.',
+  'how.retry': 'FOUR ATTEMPTS', 'how.retryBody': 'Every question has dozens of valid answers. If yours is not in the list, the question does not advance: you get red feedback and three more tries inside the timer. Only after your last attempt or when time runs out does the reveal show the result (0 points).',
   'common.back': 'BACK', 'common.close': 'CLOSE', 'common.loading': 'CONNECTING TO GRID…', 'common.error': 'Connection failed.',
   'common.offline': 'API unreachable — solo works locally, party does not.', 'common.cancel': 'CANCEL',
   'result.points': 'POINTS', 'result.copy': 'COPY',
@@ -116,7 +120,9 @@ const EN = {
   'account.best': 'BEST SCORE', 'account.plays': 'RUNS', 'account.streak': 'STREAK', 'account.member': 'MEMBER SINCE',
   'account.profile': 'PROFILE', 'account.localOnly': 'You are playing with a local profile.',
   'wrong.title': 'WRONG', 'wrong.body': 'This answer is not in the answer list for this signal.',
-  'wrong.rule': 'RULE', 'wrong.allowed': 'ALLOWED', 'wrong.tryAgain': 'A typo is corrected automatically if it then matches a listed answer.',
+  'wrong.rule': 'RULE', 'wrong.allowed': 'ALLOWED', 'wrong.tryAgain': 'No tries left. A typo is corrected automatically if it then matches a listed answer.',
+  'retry.title': 'WRONG — REROUTING SIGNAL', 'retry.hint': 'Not in the answer list. Try a different answer.',
+  'retry.left': 'tries left', 'retry.attempt': 'ATTEMPT', 'retry.exhausted': 'NO TRIES LEFT',
   'transition.shift': 'SIGNAL SHIFT', 'score.altitude': 'SCORE ALTITUDE', 'score.peak': 'PEAK',
 };
 

@@ -1,6 +1,6 @@
 import './styles.css';
 import { QUESTIONS, CATEGORIES } from './data/questions.js';
-import { normalize, scoreAnswer, seededShuffle, dailySeed, rarityLabel } from './lib/scoring.js';
+import { normalize, scoreAnswer, seededShuffle, dailySeed, rarityLabel, MAX_ANSWER_ATTEMPTS } from './lib/scoring.js';
 import { api, getSession, setSession } from './lib/api.js';
 import { sfx, setSound } from './lib/audio.js';
 import { translator } from './i18n.js';
@@ -274,6 +274,7 @@ function renderSetup() {
     state.solo = {
       settings, questions, index: 0, phase: 'question', score: 0, streak: 0,
       endsAt: Date.now() + settings.seconds * 1000, answers: [], startedAt: Date.now(),
+      attempt: 0, retry: null,
     };
     sfx.click();
     go('/game/solo');
@@ -293,6 +294,19 @@ function scoreLift(points, max = 100, compact = false) {
 function ruleLine(question) {
   const hint = question?.rule?.hint || t('wrong.body');
   return `<div class="rule-line"><span>${t('wrong.rule')}</span><p>${esc(hint)}</p></div>`;
+}
+
+function retryMarkup(retry) {
+  if (!retry) return '';
+  return `<div class="retry-feedback" id="retry-feedback" role="alert">
+    <span class="retry-title">${t('retry.title')}</span>
+    <span class="retry-text">“${esc(retry.text)}”</span>
+    <span class="retry-count">${retry.left > 0 ? `${retry.left} ${t('retry.left')}` : t('retry.exhausted')}</span>
+  </div>`;
+}
+
+function attemptFoot(game) {
+  return `<span>↵ ${t('room.send')}</span><span>${t('retry.attempt')} ${game.attempt + 1}/${MAX_ANSWER_ATTEMPTS} // ${game.settings.seconds}s</span>`;
 }
 
 /* ---------------- Solo game ---------------- */
@@ -315,11 +329,12 @@ function renderSoloGame() {
       <div class="question-meta"><span class="sector-tag" style="--chip:${(CATEGORIES[question.category] || {}).color || '#8ffff5'}">${esc((CATEGORIES[question.category] || {}).icon || '◆')} ${esc(question.category)}</span><span class="round-index">${String(game.index + 1).padStart(2, '0')} / ${String(game.questions.length).padStart(2, '0')}</span></div>
       <h2 class="question-prompt glitch-text" data-text="${esc(question.prompt)}">${esc(question.prompt)}</h2>
       ${ruleLine(question)}
+      ${retryMarkup(game.retry)}
       <form id="answer-form" class="answer-form" autocomplete="off">
         <input id="answer-input" name="answer" maxlength="60" placeholder="${t('room.placeholder')}" autofocus />
         <button class="btn btn-primary" type="submit">${t('room.send')} <span>↗</span></button>
       </form>
-      <div class="question-foot"><span>↵ ${t('room.send')}</span><span>${game.settings.seconds}s // RARITY SCORING</span></div>
+      <div class="question-foot">${attemptFoot(game)}</div>
     </div>`;
   } else {
     const answer = last;
@@ -370,27 +385,54 @@ function submitSoloAnswer(event) {
   const game = state.solo;
   if (!game || game.phase !== 'question') return;
   const input = document.getElementById('answer-input');
-  const raw = input.value;
-  const result = scoreAnswer({ raw, question: game.questions[game.index], peerAnswers: [] });
-  // Een fout antwoord wordt wél genoteerd (met 0 punten), zodat de speler
-  // duidelijk ziet dát het fout is en waarom. Alleen lege input blijft staan.
-  if (!raw.trim()) {
+  const text = input.value.trim();
+  if (!text) {
     toast(t('wrong.body'), 'error');
     sfx.error();
     input.focus();
     return;
   }
-  game.answers.push({ text: raw.trim(), ...result });
-  game.score += result.points;
-  game.streak = result.points >= 75 ? game.streak + 1 : 0;
-  game.phase = 'reveal';
-  if (result.wrong) {
-    sfx.error();
-    toast(`${t('wrong.title')} · ${result.reason || 'NOT_IN_LIST'}`, 'error');
-  } else {
+  const result = scoreAnswer({ raw: text, question: game.questions[game.index], peerAnswers: [] });
+
+  // Geldig antwoord: direct onthullen en doorschakelen.
+  if (result.ok) {
+    game.answers.push({ text, ...result });
+    game.score += result.points;
+    game.streak = result.points >= 75 ? game.streak + 1 : 0;
+    game.phase = 'reveal';
+    game.retry = null;
     sfx.reveal(result.points);
+    renderSoloGame();
+    return;
   }
-  renderSoloGame();
+
+  // Fout antwoord: rood melden, maar dezelfde vraag en dezelfde klok behouden.
+  game.attempt += 1;
+  sfx.error();
+  if (game.attempt >= MAX_ANSWER_ATTEMPTS) {
+    game.answers.push({ text, ...result });
+    game.streak = 0;
+    game.phase = 'reveal';
+    game.retry = null;
+    toast(`${t('wrong.title')} · ${t('retry.exhausted')}`, 'error');
+    renderSoloGame();
+    return;
+  }
+
+  game.retry = { text, reason: result.reason, left: MAX_ANSWER_ATTEMPTS - game.attempt };
+  toast(`${t('wrong.title')} · ${game.retry.left} ${t('retry.left')}`, 'error');
+  // Alleen de feedback, het veld en de pogingenteller verversen: startClock()
+  // blijft lopen op dezelfde endsAt, dus de speler verliest geen speeltijd.
+  const card = document.querySelector('.question-card');
+  card?.classList.remove('retry-shake');
+  if (card) void card.offsetWidth;
+  card?.classList.add('retry-shake');
+  document.getElementById('retry-feedback')?.remove();
+  document.getElementById('answer-form')?.insertAdjacentHTML('beforebegin', retryMarkup(game.retry));
+  const foot = document.querySelector('.question-foot');
+  if (foot) foot.innerHTML = attemptFoot(game);
+  input.value = '';
+  input.focus();
 }
 
 function soloTimeout() {
@@ -400,6 +442,7 @@ function soloTimeout() {
   game.answers.push({ text: t('room.noAnswer'), ...result });
   game.streak = 0;
   game.phase = 'reveal';
+  game.retry = null;
   sfx.error();
   renderSoloGame();
 }
@@ -585,13 +628,18 @@ function renderRoom(preserveInput = false) {
   } else if (room.phase === 'question') {
     const question = room.question;
     const answered = Boolean(me?.hasAnswered);
+    const own = room.answers?.[state.playerId];
+    const retry = !answered && own?.pending ? { text: own.text, left: own.attemptsLeft, reason: own.lastReason } : null;
+    const used = own?.attemptsUsed || 0;
     phaseContent = `<div class="question-card panel ${enter}">
       <div class="question-meta"><span class="sector-tag" style="--chip:${(CATEGORIES[question?.category] || {}).color || '#8ffff5'}">${esc((CATEGORIES[question?.category] || {}).icon || '◆')} ${esc(question?.category || '')}</span><span class="round-index">${String(room.round + 1).padStart(2, '0')} / ${room.totalRounds}</span></div>
       <h2 class="question-prompt glitch-text" data-text="${esc(question?.prompt || '')}">${esc(question?.prompt || '')}</h2>
       ${ruleLine(question)}
+      ${retryMarkup(retry)}
       ${answered
-        ? `<div class="locked-answer"><span>✓ ${t('room.answered')}</span><strong>${esc(room.answers[state.playerId]?.text || '')}</strong><small>${t('room.waitingFor')}</small></div>`
-        : `<form id="room-answer-form" class="answer-form" autocomplete="off"><input id="answer-input" name="answer" maxlength="60" value="${esc(previousAnswer)}" placeholder="${t('room.placeholder')}" /><button class="btn btn-primary" type="submit">${t('room.send')} <span>↗</span></button></form>`}
+        ? `<div class="locked-answer"><span>✓ ${t('room.answered')}</span><strong>${esc(own?.text || '')}</strong><small>${t('room.waitingFor')}</small></div>`
+        : `<form id="room-answer-form" class="answer-form" autocomplete="off"><input id="answer-input" name="answer" maxlength="60" value="${esc(previousAnswer)}" placeholder="${t('room.placeholder')}" /><button class="btn btn-primary" type="submit">${t('room.send')} <span>↗</span></button></form>
+           <div class="question-foot"><span>↵ ${t('room.send')}</span><span>${t('retry.attempt')} ${used + 1}/${MAX_ANSWER_ATTEMPTS}</span></div>`}
     </div>`;
   } else if (room.phase === 'reveal') {
     const answers = Object.entries(room.answers || {});
@@ -658,6 +706,11 @@ async function submitRoomAnswer(event) {
     const response = await api.roomAction({ action: 'answer', code: state.room.code, playerId: state.playerId, answer });
     state.room.data = response.room;
     lastRoomSignature = roomSignature(response.room);
+    const own = response.room.answers?.[state.playerId];
+    if (own?.pending && !own.accepted) {
+      sfx.error();
+      toast(`${t('wrong.title')} · ${own.attemptsLeft} ${t('retry.left')}`, 'error');
+    }
     renderRoom();
   } catch (error) {
     toast(error.message, 'error');
@@ -783,6 +836,7 @@ function renderHow() {
     ['02', 'how.solo', 'how.soloBody'],
     ['03', 'how.party', 'how.partyBody'],
     ['04', 'how.community', 'how.communityBody'],
+    ['05', 'how.retry', 'how.retryBody'],
   ];
   app.innerHTML = shell(`<section class="narrow how-screen">
     ${sectionTitle('MANUAL / 00', t('how.title'), t('how.intro'))}
@@ -993,6 +1047,8 @@ function bindCommon() {
           runTransition(() => {
             state.solo.index += 1;
             state.solo.phase = 'question';
+            state.solo.attempt = 0;
+            state.solo.retry = null;
             state.solo.endsAt = Date.now() + state.solo.settings.seconds * 1000;
             renderSoloGame();
           });

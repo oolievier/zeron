@@ -9,6 +9,7 @@ import {
   seededShuffle,
   rarityLabel,
   wrongLabel,
+  MAX_ANSWER_ATTEMPTS,
 } from '../src/lib/scoring.js';
 import { QUESTIONS } from '../src/data/questions.js';
 
@@ -166,6 +167,21 @@ test('elke vraag in QUESTIONS heeft een listed-regel met hint', () => {
     assert.equal(item.rule.kind, 'listed', `vraag ${item.id} heeft een onverwacht regeltype`);
     assert.ok(typeof item.rule.hint === 'string' && item.rule.hint.length > 10, `vraag ${item.id} heeft geen bruikbare hint`);
     assert.ok(item.rule.categoryHint, `vraag ${item.id} heeft geen sectorhint`);
+    assert.ok(item.common.length >= 15, `vraag ${item.id} heeft maar ${item.common.length} common-antwoorden`);
+    assert.ok(item.rare.length >= 8, `vraag ${item.id} heeft maar ${item.rare.length} rare-antwoorden`);
+    const keys = [...item.common, ...item.rare].map(normalize);
+    assert.equal(new Set(keys).size, keys.length, `vraag ${item.id} heeft dubbele antwoorden`);
+  }
+  assert.equal(MAX_ANSWER_ATTEMPTS, 4);
+});
+
+test('elk antwoord in de uitgebreide lijsten wordt ook echt geaccepteerd', () => {
+  for (const item of QUESTIONS) {
+    for (const raw of [...item.common, ...item.rare]) {
+      const result = scoreAnswer({ raw, question: item, peerAnswers: [] });
+      assert.equal(result.wrong, false, `vraag ${item.id}: "${raw}" → ${result.reason}`);
+      assert.ok(result.points > 0, `vraag ${item.id}: "${raw}" gaf 0 punten`);
+    }
   }
   assert.equal(answerRule({ category: 'SIGNAL' }).kind, 'listed');
   assert.ok(answerRule({ category: 'SIGNAL' }).categoryHint);
