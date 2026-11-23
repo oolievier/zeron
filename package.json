@@ -1,0 +1,20 @@
+{
+  "name": "zeron",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "ZERON — a hand-built cyberpunk rare-answer party game with live rooms.",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.0.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.65.1",
+    "vite": "^7.1.0"
+  }
+}
