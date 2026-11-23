@@ -5,6 +5,7 @@
 
 import { answerWeight, normalize } from '../lib/scoring.js';
 import { RECOGNITION, RECOGNITION_TIERS } from './recognition/index.js';
+import { expandRegister } from './recognition/expansion.js';
 import { SIGNAL_GRID_EXPANSIONS } from './expansions/signal-grid.js';
 import { NEON_BIO_EXPANSIONS } from './expansions/neon-bio.js';
 import { ARCHIVE_VOID_EXPANSIONS } from './expansions/archive-void.js';
@@ -19,6 +20,7 @@ const EXPLICIT_EXPANSIONS = {
 
 const COMMON_EXTRA = 11;
 const RARE_EXTRA = 6;
+export const ANSWERS_PER_QUESTION = 400;
 
 // Banken zijn per taal opgesplitst. Komma's zijn de scheiding; antwoorden
 // bevatten zelf geen komma.
@@ -333,14 +335,22 @@ export function weightedAnswers(question = {}, fallback = extraAnswers(question)
   for (const text of fallback.rare || []) candidates.push({ text, tier: 'operator' });
 
   const seen = new Set();
-  const answers = [];
+  const unique = [];
   for (const item of candidates) {
     const key = normalize(item.text);
     if (!key || key.length > 60 || seen.has(key)) continue;
     seen.add(key);
-    answers.push({ text: item.text, tier: item.tier, points: answerWeight(item.text, item.tier) });
+    unique.push({ text: item.text, tier: item.tier });
   }
-  return answers;
+
+  // Zowel expliciete registers als communityvragen worden deterministisch
+  // aangevuld tot exact 400 unieke antwoorden.
+  const entries = expandRegister(unique, question.id || question.prompt, ANSWERS_PER_QUESTION);
+  return entries.map((item) => ({
+    text: item.text,
+    tier: item.tier,
+    points: answerWeight(item.text, item.tier),
+  }));
 }
 
 // Nieuwe vraag met een groot, gewogen antwoordregister; de expliciete regel
