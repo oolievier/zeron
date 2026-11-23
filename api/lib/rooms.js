@@ -198,13 +198,10 @@ export async function getRoom(code, playerId) {
     room.updatedAt = now;
     await writeJSONConfirmed(path, room);
   }
-  if (playerId) {
-    const player = room.players.find((item) => item.id === playerId);
-    if (player && room.phase !== 'finished') {
-      player.lastSeen = now;
-      await writeJSONConfirmed(path, room);
-    }
-  }
+  // Geen lastSeen-write bij elke poll: dat schrijft een volledige kamer weg met
+  // eenzelfde versie en kan een zojuist door een andere speler ingediend
+  // antwoord overschrijven. De kamerklok wordt alleen bij echte transities
+  // weggeschreven (hierboven, met een verhoogde versie).
   return { room: publicRoom(room, playerId) };
 }
 

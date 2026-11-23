@@ -3,7 +3,7 @@
 // publicAccount() wordt ooit aan een client teruggegeven.
 
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import { readJSON, writeJSON, removePath } from './store.js';
+import { readJSON, writeJSONConfirmed, removePath } from './store.js';
 import { sendVerificationEmail } from './mail.js';
 
 const HOUR = 60 * 60 * 1000;
@@ -131,10 +131,11 @@ function verifyToken(key) {
 export async function createSession(key) {
   const token = randomBytes(32).toString('base64url');
   const expiresAt = nowIso(SESSION_TTL);
-  await writeJSON(sessionPath(sha256(token)), {
+  await writeJSONConfirmed(sessionPath(sha256(token)), {
     accountKey: key,
     createdAt: nowIso(),
     expiresAt,
+    version: 1,
   });
   return { token, expiresAt };
 }
@@ -175,7 +176,8 @@ export async function registerAccount(payload = {}) {
     verifyTokenHash: sha256(token),
     verifyExpiresAt: nowIso(VERIFY_TTL),
   };
-  await writeJSON(accountPath(key), account);
+  account.version = (Number(account.version) || 0) + 1;
+  await writeJSONConfirmed(accountPath(key), account);
 
   const verification = await sendVerificationEmail({ email, token });
   return { account: publicAccount(account, key), verification };
@@ -198,7 +200,8 @@ export async function verifyAccount(token) {
   account.verified = true;
   account.verifyTokenHash = null;
   account.verifyExpiresAt = null;
-  await writeJSON(accountPath(key), account);
+  account.version = (Number(account.version) || 0) + 1;
+  await writeJSONConfirmed(accountPath(key), account);
 
   const session = await createSession(key);
   return {
@@ -221,7 +224,8 @@ export async function resendVerification(payload = {}) {
   const token = verifyToken(key);
   account.verifyTokenHash = sha256(token);
   account.verifyExpiresAt = nowIso(VERIFY_TTL);
-  await writeJSON(accountPath(key), account);
+  account.version = (Number(account.version) || 0) + 1;
+  await writeJSONConfirmed(accountPath(key), account);
 
   const verification = await sendVerificationEmail({ email, token });
   return {
@@ -287,7 +291,8 @@ export async function saveRun(first = {}, second) {
   if (stats.daily.date !== date) stats.daily = { date, score };
 
   account.stats = stats;
-  await writeJSON(accountPath(key), account);
+  account.version = (Number(account.version) || 0) + 1;
+  await writeJSONConfirmed(accountPath(key), account);
   return { account: publicAccount(account, key) };
 }
 
