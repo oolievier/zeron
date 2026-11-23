@@ -22,6 +22,8 @@ export default async function handler(req, res) {
           prompt: item.question.prompt,
           category: item.question.category,
           lang: item.question.lang,
+          common: item.question.common,
+          rare: item.question.rare,
           tags: ['community'],
           votes: item.votes || 0,
           createdAt: item.createdAt,
