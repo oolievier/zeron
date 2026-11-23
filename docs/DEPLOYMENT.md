@@ -58,7 +58,7 @@ Daarna bouwt elke push naar `main` automatisch. Tot die tijd: push naar GitHub e
 npm run smoke   # ZERON_URL=https://zeron-one.vercel.app node scripts/smoke-live.mjs
 ```
 
-De smoke-test controleert `/api/health`, een volledige kamerronde (create → join → start → antwoorden → verborgen antwoorden → reveal → next), dat een onbekend antwoord 0 punten en het rode `Fout`-label krijgt, de accountflow (register → verify → me → saveRun → logout) en het indienen van een communityvraag. Korte read-after-write-latentie van Blob wordt opgevangen met `writeJSONConfirmed()` voor kamers en met retries in de smoke-test. Bij de livegang zijn verder drie SDK-aanpassingen gevonden en opgelost: `get()` vereist `access: 'private'`, geeft een stream in plaats van `.text()`, en `put()` vereist `allowOverwrite: true` bij vaste paden.
+De smoke-test controleert `/api/health`, een volledige kamerronde (create → join → start → antwoorden → verborgen antwoorden → reveal → next), dat een onbekend antwoord 0 punten en het rode `Fout`-label krijgt, de accountregistratie en het indienen van een communityvraag. Bij de directe link doorloopt hij ook verify → me → saveRun → logout; met echte mail controleert hij dat de provider de mail accepteert en dat `resend` werkt (de token zelf zit dan in de inbox). Korte read-after-write-latentie van Blob wordt opgevangen met `writeJSONConfirmed()` voor kamers en met retries in de smoke-test. Bij de livegang zijn verder drie SDK-aanpassingen gevonden en opgelost: `get()` vereist `access: 'private'`, geeft een stream in plaats van `.text()`, en `put()` vereist `allowOverwrite: true` bij vaste paden.
 
 ## Lokaal
 

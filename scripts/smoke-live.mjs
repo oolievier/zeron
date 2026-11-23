@@ -70,21 +70,30 @@ if (!bad.wrong || bad.points !== 0 || bad.label?.key !== 'wrong') throw new Erro
 console.log('scoring OK:', good.points, 'vs', bad.points, bad.label?.label);
 await post({ action: 'next', code, playerId: hostId });
 
-// Accountflow: register → verify (dev-link fallback) → me → saveRun → logout.
-const email = `smoke-${stamp}@zeron.test`;
+// Accountflow. Met een directe link doen we de hele flow; met echte mail
+// checken we dat de provider accepteert (de token zit dan in de inbox).
+const email = `smoke-${stamp}@gmail.com`;
 const registration = await postAccount({ action: 'register', email, name: 'SMOKE', password: 'smokepass99' });
-if (!registration.devLink) throw new Error('No verification link returned');
-const token = registration.devLink.split('/').pop();
-const verified = await postAccount({ action: 'verify', token });
-if (!verified.session || !verified.account?.verified) throw new Error('Verification failed');
-const sessionHeaders = { 'X-Zeron-Session': verified.session };
-const me = await eventually('/api/account?action=me', { headers: sessionHeaders }, (data) => data.account?.email === email);
-const saved = await eventually('/api/account', {
-  method: 'POST', body: JSON.stringify({ action: 'saveRun', score: 512, mode: 'blitz', questions: 7 }), headers: sessionHeaders,
-}, (data) => data.account?.stats?.plays >= 1 && data.account?.stats?.best >= 512);
-if (saved.account.stats.plays < 1 || saved.account.stats.best < 512) throw new Error('saveRun failed');
-await postAccount({ action: 'logout' }, sessionHeaders);
-console.log('account flow OK:', email);
+
+if (registration.devLink) {
+  const token = registration.devLink.split('/').pop();
+  const verified = await postAccount({ action: 'verify', token });
+  if (!verified.session || !verified.account?.verified) throw new Error('Verification failed');
+  const sessionHeaders = { 'X-Zeron-Session': verified.session };
+  await eventually('/api/account?action=me', { headers: sessionHeaders }, (data) => data.account?.email === email);
+  const saved = await eventually('/api/account', {
+    method: 'POST', body: JSON.stringify({ action: 'saveRun', score: 512, mode: 'blitz', questions: 7 }), headers: sessionHeaders,
+  }, (data) => data.account?.stats?.plays >= 1 && data.account?.stats?.best >= 512);
+  if (saved.account.stats.plays < 1 || saved.account.stats.best < 512) throw new Error('saveRun failed');
+  await postAccount({ action: 'logout' }, sessionHeaders);
+  console.log('account flow OK (directe link):', email);
+} else if (registration.verification?.sent) {
+  const resent = await postAccount({ action: 'resend', email });
+  if (!resent.verification?.sent) throw new Error('Verification mail could not be resent');
+  console.log('account mail OK:', registration.verification.provider, '| link staat in de inbox:', email);
+} else {
+  throw new Error(`No verification route returned: ${JSON.stringify(registration.verification)}`);
+}
 
 const submission = await json('/api/questions', {
   method: 'POST',
