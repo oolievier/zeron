@@ -6,7 +6,7 @@ ZERON is niet gekopieerd van een bestaand spel, maar de **mechanische lessen** v
 |---|---|---|---|
 | [PLAYASCENT.md](PLAYASCENT.md) | `http://playascent.online/` (single-file, 3,4 MB) | REA CLI + handmatige codelezing | 7×25 s, rarity-engine, question bag, tolerant antwoordmatchen, localStorage |
 | [KRILLION.md](KRILLION.md) | `https://krillion.io` + 8 subroutes | curl + codelezing | daily dive, zes tiers, streaks, archive, vrienden, party mode, CRT/ocean |
-| [PLAYPLAIN.md](PLAYPLAIN.md) | `https://playplain.app` (single page, 205 KB) | statische HTML/CSS/JS-lezing | 7 targets/day, closest-answer ranks, daily/archives/locales |
+| [PLAYPLAIN.md](PLAYPLAIN.md) | `https://playplain.app` (single page, 205 KB) | statische HTML/CSS/JS/RSC-lezing | 7 targets/day, 30 s, ratio-scoring, 16 locales, archief |
 | [ascent-rea-summary.json](ascent-rea-summary.json) | REA CLI output | `npx -y rea-agents@latest analyze-javascript-application` | 4 JS-bestanden, 7.496 AST-nodes, 15 findings |
 
 De volledige REA-evidence (11 MB) staat bewust niet in de repo; de samenvatting wel.

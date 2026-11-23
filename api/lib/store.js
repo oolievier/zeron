@@ -27,6 +27,7 @@ export async function writeJSON(path, value) {
     token,
     access: 'private',
     addRandomSuffix: false,
+    allowOverwrite: true,
     contentType: 'application/json',
     cacheControlMaxAge: 0,
   });
