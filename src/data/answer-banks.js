@@ -319,8 +319,9 @@ export function weightedAnswers(question = {}, fallback = extraAnswers(question)
       for (const text of explicit[tier] || []) candidates.push({ text, tier });
     }
   }
-  // Ook zonder expliciet register krijgen communityvragen vier bands: de
-  // handgeschreven basis is civilian/ghost, de generieke bank noise/operator.
+  // Ook zonder expliciet register krijgen communityvragen zes bands: de
+  // handgeschreven basis is civilian/ghost, de generieke bank noise/operator,
+  // en de deterministische expansie vult runner/ghost/singularity aan.
   // Expliciete registers zijn comprehensief, maar de categorie-specifieke
   // banken voegen extra synoniemen toe voor communityvragen en-held-out
   // antwoorden. Voor expliciete vragen zijn de basisvelden al uit het register
