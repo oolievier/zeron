@@ -21,10 +21,10 @@ await page.route('**/api/**', async (route) => {
   const request = route.request();
   const url = new URL(request.url());
   if (url.pathname === '/api/questions') {
-    return route.fulfill(json({ ok: true, items: [], library: { total: 224, base: 224, community: 0 }, categories: {} }));
+    return route.fulfill(json({ ok: true, items: [], library: { total: 424, base: 424, community: 0 }, categories: {} }));
   }
   if (url.pathname === '/api/health') {
-    return route.fulfill(json({ ok: true, storage: 'mock', questions: 224 }));
+    return route.fulfill(json({ ok: true, storage: 'mock', questions: 424 }));
   }
   if (url.pathname !== '/api/account') return route.fulfill(json({ ok: false, message: 'unhandled' }, 404));
 

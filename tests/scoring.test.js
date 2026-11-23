@@ -46,10 +46,12 @@ const ruleQuestion = {
 };
 
 const RANGES = {
-  common: [8, 24],
-  uncommon: [28, 49],
-  rare: [58, 82],
-  ghost: [84, 100],
+  civilian: [5, 14],
+  noise: [17, 27],
+  runner: [30, 46],
+  operator: [49, 65],
+  ghost: [68, 82],
+  singularity: [85, 100],
 };
 
 test('normalize strips diacritics and punctuation', () => {
@@ -82,28 +84,31 @@ test('elk antwoord heeft een eigen gewicht binnen zijn band', () => {
     }
     assert.ok(values.size >= 10, `band ${tier} heeft te weinig verschillende waarden`);
   }
-  assert.ok(seen.size >= 70, 'te weinig verschillende puntwaarden');
-  assert.ok(RANGES.common[1] < RANGES.uncommon[0]);
-  assert.ok(RANGES.uncommon[1] < RANGES.rare[0]);
-  assert.ok(RANGES.rare[1] < RANGES.ghost[0]);
-  assert.equal(rarityLabel(10).key, 'common');
-  assert.equal(rarityLabel(35).key, 'uncommon');
-  assert.equal(rarityLabel(70).key, 'rare');
-  assert.equal(rarityLabel(90).key, 'ghost');
+  assert.ok(seen.size >= 60, 'te weinig verschillende puntwaarden');
+  const bands = Object.values(RANGES);
+  for (let i = 1; i < bands.length; i += 1) {
+    assert.ok(bands[i - 1][1] < bands[i][0], `band ${i} overlapt met de vorige`);
+  }
+  assert.equal(rarityLabel(10).key, 'civilian');
+  assert.equal(rarityLabel(22).key, 'noise');
+  assert.equal(rarityLabel(38).key, 'runner');
+  assert.equal(rarityLabel(56).key, 'operator');
+  assert.equal(rarityLabel(75).key, 'ghost');
+  assert.equal(rarityLabel(95).key, 'singularity');
 });
 
-test('common/rare krijgen hun band en echo blijft −10', () => {
-  const common = scoreAnswer({ raw: 'ballon', question, peerAnswers: [] });
-  const rare = scoreAnswer({ raw: 'een gerucht', question, peerAnswers: [] });
-  assert.equal(common.wrong, false);
-  assert.equal(common.tier, 'common');
-  assert.ok(common.points >= 8 && common.points <= 24);
-  assert.equal(rare.wrong, false);
-  assert.equal(rare.tier, 'rare');
-  assert.ok(rare.points >= 58 && rare.points <= 82);
+test('zes bands krijgen hun eigen bereik en echo blijft −10', () => {
+  const civilian = scoreAnswer({ raw: 'ballon', question, peerAnswers: [] });
+  const ghost = scoreAnswer({ raw: 'een gerucht', question, peerAnswers: [] });
+  assert.equal(civilian.wrong, false);
+  assert.equal(civilian.tier, 'civilian');
+  assert.ok(civilian.points >= 5 && civilian.points <= 14);
+  assert.equal(ghost.wrong, false);
+  assert.equal(ghost.tier, 'ghost');
+  assert.ok(ghost.points >= 68 && ghost.points <= 82);
 
   const duplicate = scoreAnswer({ raw: 'een gerucht', question, peerAnswers: ['een gerucht'] });
-  assert.equal(rare.points - duplicate.points, 10);
+  assert.equal(ghost.points - duplicate.points, 10);
   assert.match(duplicate.notes.join(' '), /ECHO/);
 });
 
@@ -133,13 +138,13 @@ test('typo’s en schrijfvormen worden naar het bedoelde antwoord hersteld', () 
   const los = scoreAnswer({ raw: 'gerucnt', question: typoQuestion });
   assert.equal(los.normalized, 'gerucht');
   assert.equal(los.corrected, 'gerucht');
-  assert.ok(los.points >= 55 && los.points <= 82);
+  assert.ok(los.points >= 65 && los.points <= 82);
 
   const metLidwoord = scoreAnswer({ raw: 'een gerucnt', question });
   assert.equal(metLidwoord.normalized, 'een gerucht');
   assert.equal(metLidwoord.points >= 55, true);
 
-  const meervoud = scoreAnswer({ raw: 'balloons', question: { ...typoQuestion, answers: [{ text: 'balloon', tier: 'common', points: 12 }] } });
+  const meervoud = scoreAnswer({ raw: 'balloons', question: { ...typoQuestion, answers: [{ text: 'balloon', tier: 'civilian', points: 9 }] } });
   assert.equal(meervoud.wrong, false);
   assert.equal(meervoud.normalized, 'balloon');
 
@@ -199,12 +204,16 @@ test('elke vraag heeft een groot, uniek en gewogen antwoordregister', () => {
     assert.ok(typeof item.rule.hint === 'string' && item.rule.hint.length > 10, `vraag ${item.id} heeft geen bruikbare hint`);
     assert.ok(item.rule.categoryHint, `vraag ${item.id} heeft geen sectorhint`);
     assert.ok(item.answers.length >= 90, `vraag ${item.id} heeft maar ${item.answers.length} antwoorden`);
-    assert.ok(item.common.length >= 20, `vraag ${item.id} heeft maar ${item.common.length} common-antwoorden`);
-    assert.ok(item.rare.length >= 25, `vraag ${item.id} heeft maar ${item.rare.length} rare-antwoorden`);
+    assert.ok(item.common.length >= 20, `vraag ${item.id} heeft maar ${item.common.length} lage-band antwoorden`);
+    assert.ok(item.rare.length >= 25, `vraag ${item.id} heeft maar ${item.rare.length} hoge-band antwoorden`);
+    for (const tier of Object.keys(RANGES)) {
+      const count = item.answers.filter((entry) => entry.tier === tier).length;
+      assert.ok(count >= 5, `vraag ${item.id} heeft maar ${count} ${tier}-antwoorden`);
+    }
     const keys = item.answers.map((entry) => normalize(entry.text));
     assert.equal(new Set(keys).size, keys.length, `vraag ${item.id} heeft dubbele antwoorden`);
     for (const entry of item.answers) {
-      const [min, max] = RANGES[entry.tier] || RANGES.common;
+      const [min, max] = RANGES[entry.tier] || RANGES.civilian;
       assert.ok(entry.points >= min && entry.points <= max, `vraag ${item.id}: ${entry.text} → ${entry.points}`);
     }
   }

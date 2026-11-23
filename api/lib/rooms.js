@@ -170,7 +170,7 @@ async function withRoom(code, mutator, playerId) {
 export async function createRoom(payload) {
   const settings = {
     lang: ['nl', 'en', 'all'].includes(payload.lang) ? payload.lang : 'nl',
-    categories: Array.isArray(payload.categories) && payload.categories.length ? payload.categories.slice(0, 8) : [],
+    categories: Array.isArray(payload.categories) && payload.categories.length ? payload.categories.slice(0, 12) : [],
     rounds: Math.min(15, Math.max(3, Number(payload.rounds) || 7)),
     seconds: Math.min(60, Math.max(10, Number(payload.seconds) || 25)),
     seed: String(payload.seed || `${Date.now()}-${Math.random()}`),

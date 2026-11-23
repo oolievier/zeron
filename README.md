@@ -2,7 +2,7 @@
 
 **Rare answers only.** Een zelfgebouwd cyberpunk partyspel waarin je niet het *goede* antwoord zoekt, maar het antwoord dat niemand anders bedenkt.
 
-ZERON is een eigen interpretatie van drie bestaande spellen — [PlayAscent](http://playascent.online/), [Krillion](https://krillion.io) en [PlayPlain](https://playplain.app) — met een volledig eigen UI, eigen scoring-engine, een vragenbibliotheek van 224 vragen met gemiddeld ruim honderd herkende antwoorden en varianten per vraag, online kamers voor vrienden en een formulier waarmee spelers zelf vragen kunnen insturen.
+ZERON is een eigen interpretatie van drie bestaande spellen — [PlayAscent](http://playascent.online/), [Krillion](https://krillion.io) en [PlayPlain](https://playplain.app) — met een volledig eigen UI, eigen scoring-engine, een vragenbibliotheek van 424 vragen in 12 sectoren (waaronder topografie) met gemiddeld ruim honderd herkende antwoorden en varianten per vraag, online kamers voor vrienden en een formulier waarmee spelers zelf vragen kunnen insturen.
 
 > Geen affiliate van de originele spellen. Alle code, vormgeving en copy in deze repo is nieuw geschreven. De analyses van de originele sites staan in [`docs/source-analysis/`](docs/source-analysis/).
 
@@ -19,7 +19,7 @@ ZERON is een eigen interpretatie van drie bestaande spellen — [PlayAscent](htt
 
 De UI heeft een eigen bewegingslaag: periodieke glitch-bursts, een `SIGNAL SHIFT`-transitie tussen schermen en vragen, neon-scorebuizen die meegroeien met je punten en duidelijke rode `Fout`-schermen bij antwoorden die niet worden herkend. Animaties zijn decoratief, blokkeren de gameplay niet en respecteren `prefers-reduced-motion`.
 
-Iedere vraag herkent gemiddeld ruim honderd antwoorden en varianten (synoniemen, meervouden, lidwoorden en kleine typfouten). Elk antwoord heeft zijn eigen puntwaarde: gewoon scoren laag, zeldzaam hoog. Een fout antwoord stopt de vraag niet: je hebt vier pogingen binnen dezelfde timer. Pas bij een herkend antwoord, uitgeputte pogingen of tijd verstrijken gaat de reveal open. Zie [`docs/SCORING.md`](docs/SCORING.md) voor de volledige regels.
+Iedere vraag herkent gemiddeld ruim honderd antwoorden en varianten (synoniemen, meervouden, lidwoorden en kleine typfouten). Elk antwoord heeft zijn eigen puntwaarde in één van zes cyberpunk-bands: `CIVILIAN` (5–14), `NOISE` (17–27), `RUNNER` (30–46), `OPERATOR` (49–65), `GHOST` (68–82) en `SINGULARITY` (85–100). Gewoon scoren laag, zeldzaam hoog. Een fout antwoord stopt de vraag niet: je hebt vier pogingen binnen dezelfde timer. Pas bij een herkend antwoord, uitgeputte pogingen of tijd verstrijken gaat de reveal open. Zie [`docs/SCORING.md`](docs/SCORING.md) voor de volledige regels.
 
 ## Snel starten
 
@@ -40,8 +40,9 @@ src/
   main.js              router, schermen, solo-engine, kamer-UI
   styles.css           volledig eigen cyberpunk design (geen UI-kit)
   i18n.js              NL/EN interface-teksten
-  data/questions.js    224 vragen, 8 sectoren, 2 talen
-  lib/scoring.js       normalize, typo-correctie, validatie, rarity-engine
+  data/questions.js    424 vragen, 12 sectoren, 2 talen
+  data/recognition/    gewogen antwoordregisters (zes bands per vraag)
+  lib/scoring.js       normalize, herkenning, validatie, gewogen scoring
   lib/api.js           fetch-laag
   lib/audio.js         WebAudio-geluidseffecten (geen assets)
 api/

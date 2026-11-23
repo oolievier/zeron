@@ -7,21 +7,26 @@ const ALLOWED = /[^a-z0-9\s'-]/g;
 // Eerste poging + drie retries. Gedeeld door solo, kamer-API en tests.
 export const MAX_ANSWER_ATTEMPTS = 4;
 
-// Elk antwoord heeft zijn eigen gewicht. De vier bands overlappen niet, zodat
-// "common" altijd laag scoort en "ghost" altijd het hoogst.
+// Elk antwoord heeft zijn eigen gewicht. De zes bands overlappen niet, zodat
+// "civilian" altijd laag scoort en "singularity" altijd het hoogst.
 const DEFAULT_RULE_HINT = 'Een herkenbaar antwoord voor dit signaal telt; hoe zeldzamer, hoe meer punten.';
-const TIER_RANGES = {
-  common: { min: 8, max: 24 },
-  uncommon: { min: 28, max: 49 },
-  rare: { min: 58, max: 82 },
-  ghost: { min: 84, max: 100 },
+export const TIER_RANGES = {
+  civilian: { min: 5, max: 14 },
+  noise: { min: 17, max: 27 },
+  runner: { min: 30, max: 46 },
+  operator: { min: 49, max: 65 },
+  ghost: { min: 68, max: 82 },
+  singularity: { min: 85, max: 100 },
 };
-const TIER_LABELS = {
-  common: 'COMMON',
-  uncommon: 'UNCOMMON',
-  rare: 'RARE',
-  ghost: 'GHOST RARE',
+export const TIER_LABELS = {
+  civilian: 'CIVILIAN',
+  noise: 'NOISE',
+  runner: 'RUNNER',
+  operator: 'OPERATOR',
+  ghost: 'GHOST',
+  singularity: 'SINGULARITY',
 };
+export const ANSWER_TIERS = Object.keys(TIER_RANGES);
 const ARTICLES = /^(een|de|het|the|a|an)\s+/;
 const STOPWORDS = new Set([
   'een', 'de', 'het', 'the', 'a', 'an', 'van', 'met', 'in', 'op', 'die', 'dat',
@@ -39,6 +44,10 @@ const CATEGORY_HINTS = {
   VOID: 'De Void: denk aan ruimte, stilte of het onbekende.',
   STREET: 'Straat: denk aan straat, verkeer of stadsleven.',
   GLITCH: 'Glitch: denk aan fout, storing of vreemde code.',
+  TERRAIN: 'Terrein: denk aan berg, rivier, kaart of coördinaat.',
+  CLIMATE: 'Klimaat: denk aan weer, wind, wolken of temperatuur.',
+  CULTURE: 'Cultuur: denk aan muziek, film, kunst of subcultuur.',
+  CREDITS: 'Credits: denk aan geld, betalen, prijs of handel.',
 };
 
 export function normalize(value) {
@@ -160,8 +169,8 @@ function hash32(text) {
 
 // Binnen elke band krijgt elk antwoord zijn eigen, reproduceerbare waarde.
 // Lengte en meerdere woorden tellen licht mee; de bandgrenzes overlappen niet.
-export function answerWeight(text, tier = 'common') {
-  const range = TIER_RANGES[tier] || TIER_RANGES.common;
+export function answerWeight(text, tier = 'civilian') {
+  const range = TIER_RANGES[tier] || TIER_RANGES.civilian;
   const key = normalize(text);
   const span = range.max - range.min + 1;
   const jitter = hash32(`zeron:${tier}:${key}`) % span;
@@ -237,8 +246,8 @@ export function answerEntries(question = {}) {
   const source = Array.isArray(question.answers) && question.answers.length
     ? question.answers
     : [
-      ...(question.common || []).map((text) => ({ text, tier: 'common', points: answerWeight(text, 'common') })),
-      ...(question.rare || []).map((text) => ({ text, tier: 'rare', points: answerWeight(text, 'rare') })),
+      ...(question.common || []).map((text) => ({ text, tier: 'civilian', points: answerWeight(text, 'civilian') })),
+      ...(question.rare || []).map((text) => ({ text, tier: 'ghost', points: answerWeight(text, 'ghost') })),
     ];
   const cached = registryCache.get(source);
   if (cached) return cached;
@@ -274,10 +283,12 @@ function findAnswer(raw, question = {}, corrected = null) {
 }
 
 export function rarityLabel(points) {
-  if (points < 25) return { key: 'common', label: TIER_LABELS.common, color: '#7c8aa6' };
-  if (points < 50) return { key: 'uncommon', label: TIER_LABELS.uncommon, color: '#8ffff5' };
-  if (points < 84) return { key: 'rare', label: TIER_LABELS.rare, color: '#ff3b9d' };
-  return { key: 'ghost', label: TIER_LABELS.ghost, color: '#d4ff4f' };
+  if (points < 15) return { key: 'civilian', label: TIER_LABELS.civilian, color: '#7c8aa6' };
+  if (points < 28) return { key: 'noise', label: TIER_LABELS.noise, color: '#8ffff5' };
+  if (points < 47) return { key: 'runner', label: TIER_LABELS.runner, color: '#39ff14' };
+  if (points < 66) return { key: 'operator', label: TIER_LABELS.operator, color: '#ffb000' };
+  if (points < 83) return { key: 'ghost', label: TIER_LABELS.ghost, color: '#ff3b9d' };
+  return { key: 'singularity', label: TIER_LABELS.singularity, color: '#eaff00' };
 }
 
 // Een fout antwoord krijgt géén bonussen, géén minimum en géén pseudo-rarity.
@@ -321,7 +332,7 @@ export function scoreAnswer({ raw, question = {}, peerAnswers = [], corrected = 
     });
   }
 
-  const tier = TIER_RANGES[match.entry.tier] ? match.entry.tier : 'common';
+  const tier = TIER_RANGES[match.entry.tier] ? match.entry.tier : 'civilian';
   const basePoints = match.entry.points;
   let points = basePoints;
   const notes = [`${TIER_LABELS[tier]} ${basePoints}`];

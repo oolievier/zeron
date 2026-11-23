@@ -1,8 +1,12 @@
-// ZERON vragenbibliotheek — 224 vragen totaal: 112 Nederlands (nl) / 112 Engels (en).
-// 28 vragen per categorie (14 NL + 14 EN), verdeeld over 8 categorieën.
+// ZERON vragenbibliotheek — 424 vragen totaal: 212 Nederlands (nl) / 212 Engels (en).
+// 28–50 vragen per categorie, verdeeld over 12 sectoren (inclusief topografie).
 
 import { answerRule } from '../lib/scoring.js';
 import { expandQuestion } from './answer-banks.js';
+import { TERRAIN_QUESTIONS } from './questions-extra/terrain.js';
+import { CLIMATE_QUESTIONS } from './questions-extra/climate.js';
+import { CULTURE_QUESTIONS } from './questions-extra/culture.js';
+import { CREDITS_QUESTIONS } from './questions-extra/credits.js';
 
 export const CATEGORIES = {
   SIGNAL: { label: "Signaal", color: "#39FF14", icon: "📡" },
@@ -13,6 +17,10 @@ export const CATEGORIES = {
   VOID: { label: "De Void", color: "#8A2BE2", icon: "🌌" },
   STREET: { label: "Straat", color: "#FF5722", icon: "🛣️" },
   GLITCH: { label: "Glitch", color: "#E0E0E0", icon: "⚡" },
+  TERRAIN: { label: "Terrein", color: "#00B894", icon: "🗺️" },
+  CLIMATE: { label: "Klimaat", color: "#74B9FF", icon: "🌪️" },
+  CULTURE: { label: "Cultuur", color: "#F368E0", icon: "🎧" },
+  CREDITS: { label: "Credits", color: "#FDCB6E", icon: "💳" },
 };
 
 // Ruwe vragen: de regel wordt hieronder centraal toegevoegd.
@@ -1616,6 +1624,12 @@ const RAW_QUESTIONS = [
     rare: ["ZERON", "CQ", "RESET"],
     tags: ["word", "system"],
   },
+
+  // ───────────────── NIEUW: 200 vragen in vier extra sectoren ─────────────────
+  ...TERRAIN_QUESTIONS,
+  ...CLIMATE_QUESTIONS,
+  ...CULTURE_QUESTIONS,
+  ...CREDITS_QUESTIONS,
 ];
 
 // Elke vraag krijgt een groot gewogen antwoordregister en een expliciete regel.

@@ -50,9 +50,9 @@ In solo wordt een **definitief** fout antwoord genoteerd met **0 punten** en een
 
 ### 4b. Antwoordlijsten en retries
 
-Iedere basisvraag heeft een groot, vraagspecifiek register in [`src/data/recognition/`](../src/data/recognition/): **91–120 antwoorden per vraag** (gemiddeld 104; totaal 23.255), verdeeld over `common`, `uncommon`, `rare` en `ghost`. De handgeschreven basis en [`src/data/expansions/`](../src/data/expansions/) worden daarin opgenomen; [`src/data/answer-banks.js`](../src/data/answer-banks.js) voegt alles samen en geeft elk antwoord een eigen gewicht. NV/EN-vragen accepteren ook antwoorden in de andere taal. Communityvragen zonder eigen register gebruiken de sector/tag-bank als terugval. Elk registerantwoord wordt door de engine geaccepteerd (getest in `tests/scoring.test.js`).
+De bibliotheek heeft **424 vragen in 12 sectoren**: de oorspronkelijke acht cyberpunk-sectoren (224 vragen) plus vier nieuwe — `TERRAIN` (topografie), `CLIMATE`, `CULTURE` en `CREDITS` (200 vragen). Iedere vraag heeft een groot, vraagspecifiek register in [`src/data/recognition/`](../src/data/recognition/): **91–132 antwoorden per vraag** (gemiddeld 111; totaal 46.928), verdeeld over zes bands. De handgeschreven basis en [`src/data/expansions/`](../src/data/expansions/) worden daarin opgenomen; [`src/data/answer-banks.js`](../src/data/answer-banks.js) voegt alles samen en geeft elk antwoord een eigen gewicht. NL/EN-vragen accepteren ook antwoorden in de andere taal. Communityvragen zonder eigen register gebruiken de sector/tag-bank als terugval. Elk registerantwoord wordt door de engine geaccepteerd (getest in `tests/scoring.test.js`).
 
-Daarnaast bevat [`tests/coverage-samples.js`](../tests/coverage-samples.js) een onafhankelijke steekproef van 896 plausibele antwoorden die **niet letterlijk** in een register staan. [`tests/coverage.test.js`](../tests/coverage.test.js) controleert dat minimaal 90% daarvan wordt herkend; de huidige stand is **896/896 = 100%**, gelijk verdeeld over alle acht sectoren.
+Daarnaast bevatten `tests/coverage-samples*.js` **1.696 steekproeven** van plausibele antwoorden; 1.096 daarvan staan bewust **niet letterlijk** in een register (held-out). [`tests/coverage.test.js`](../tests/coverage.test.js) controleert dat minimaal 90% van alle samples wordt herkend; de huidige stand is **1.696/1.696 = 100%**, gelijk verdeeld over alle twaalf sectoren.
 
 Een antwoord dat niet wordt herkend, is fout — maar **beëindigt de vraag niet direct**. De speler krijgt `MAX_ANSWER_ATTEMPTS = 4` pogingen (eerste poging + 3 retries) binnen dezelfde timer:
 
@@ -64,10 +64,12 @@ Een antwoord dat niet wordt herkend, is fout — maar **beëindigt de vraag niet
 
 ```
 base = het eigen gewicht van het herkende antwoord:
-  common   → 8–24
-  uncommon → 28–49
-  rare     → 58–82
-  ghost    → 84–100
+  civilian    →   5–14   (alledaags, voor de hand liggend)
+  noise       →  17–27   (gewoon, maar minder vanzelfsprekend)
+  runner      →  30–46   (straatniveau)
+  operator    →  49–65   (kenner)
+  ghost       →  68–82   (zeldzaam)
+  singularity →  85–100  (deep cut)
 
 peer bonus/malus:
   geen dubbelen in kamer (en er zijn peers) → +18
@@ -79,7 +81,7 @@ correctie:
 totaal = clamp(5, 100, base + peer + correctie)
 ```
 
-Het gewicht wordt door `answerWeight(text, tier)` bepaald: FNV-1a-hash van `"zeron:<tier>:<genormaliseerd antwoord>"` binnen de band, plus een kleine bonus voor lengte en meerdere woorden. Daardoor heeft **elk antwoord zijn eigen puntwaarde**, blijft de volgorde common < uncommon < rare < ghost gewaarborgd en is de uitkomst overal reproduceerbaar.
+De zes bands zijn cyberpunk-rangen en overlappen niet. Het gewicht wordt door `answerWeight(text, tier)` bepaald: FNV-1a-hash van `"zeron:<tier>:<genormaliseerd antwoord>"` binnen de band, plus een kleine bonus voor lengte en meerdere woorden. Daardoor heeft **elk antwoord zijn eigen puntwaarde**, blijft de volgorde civilian < noise < runner < operator < ghost < singularity gewaarborgd en is de uitkomst overal reproduceerbaar.
 
 In solo-modus is `peerAnswers` leeg: de unique-bonus vervalt. In party-modus berekent de **server** de score bij de reveal, met alle antwoorden van die ronde. De client krijgt pas punten te zien na de reveal.
 
@@ -87,10 +89,12 @@ In solo-modus is `peerAnswers` leeg: de unique-bonus vervalt. In party-modus ber
 
 | Punten | Label | Kleur |
 |---|---|---|
-| < 25 | COMMON | grijsblauw |
-| 25–49 | UNCOMMON | cyaan |
-| 50–83 | RARE | magenta |
-| 84–100 | GHOST RARE | lime |
+| 5–14 | CIVILIAN | grijsblauw (`#7c8aa6`) |
+| 15–27 | NOISE | cyaan (`#8ffff5`) |
+| 28–46 | RUNNER | neon groen (`#39ff14`) |
+| 47–65 | OPERATOR | amber (`#ffb000`) |
+| 66–82 | GHOST | magenta (`#ff3b9d`) |
+| 83–100 | SINGULARITY | neon lime (`#eaff00`) |
 | fout/timeout | Fout / MISSED | rood (`#ff425d`) |
 
 Naast het label toont de UI een neon 'score-buis' die van 0 naar het behaalde aantal punten groeit (`score-lift`). Dat is puur visueel; de score zelf komt altijd van de engine.
@@ -106,12 +110,12 @@ Naast het label toont de UI een neon 'score-buis' die van 0 naar het behaalde aa
 
 | Antwoord op “Noem iets dat je kunt opblazen.” | Resultaat |
 |---|---|
-| `ballon` (common) | 9 → COMMON |
-| `een ballon` (lidwoord) | zelfde antwoord, 9 → COMMON |
-| `balloons` (Engelse vorm, 1 teken verschil) | gecorrigeerd naar `ballon` → 6 → COMMON |
-| `een gerucnt` (typo op rare) | gecorrigeerd naar `een gerucht` → 64 → RARE |
+| `ballon` (civilian) | 5 → CIVILIAN |
+| `een ballon` (lidwoord) | zelfde antwoord, 5 → CIVILIAN |
+| `balloons` (variant) | zelfde antwoord, 5 → CIVILIAN |
+| `een gerucnt` (typo op ghost) | gecorrigeerd naar `een gerucht` → 77 → GHOST |
 | `een rare spinazie` (niet herkend) | **Fout, 0 punten** |
-| `een gerucht`, maar 2 spelers | 57 → RARE (echo −10) |
+| `een gerucht`, maar 2 spelers | 70 → GHOST (echo −10) |
 | `het is een ballon` bij `startsWith: 'een'` | **Fout, 0 punten** (regel failt) |
 
 De engine is deterministic: dezelfde invoer geeft altijd dezelfde score, in de browser én op de server.

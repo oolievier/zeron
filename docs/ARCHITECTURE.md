@@ -6,7 +6,7 @@
 Browser (Vite, vanilla JS, geen framework)
   ├─ hash-router → schermen (home, setup, solo, party, room, archive, submit, how, result)
   ├─ scoring.js  → deterministische herkenning + gewogen antwoordscores (ook in de API)
-  ├─ data/recognition/ → 224 vraagspecifieke, gewogen antwoordregisters
+  ├─ data/recognition/ → 424 vraagspecifieke registers, zes gewogen bands
   ├─ api.js      → fetch naar /api/* + sessietoken uit localStorage
   └─ styles.css  → handgemaakte neon-UI, glitch-bursts, score-lift
                          │
@@ -24,6 +24,8 @@ Vercel Blob (private, BLOB_READ_WRITE_TOKEN)
 ```
 
 De client is een statische SPA; `vercel.json` rewritten alle niet-`/api/` paden naar `index.html`. Hash-routing betekent dat er geen server-side routing nodig is.
+
+De vragenpool (424 vragen, 2 talen) is verdeeld over 12 sectoren: `SIGNAL`, `GRID`, `NEON`, `BIO`, `ARCHIVE`, `VOID`, `STREET`, `GLITCH`, `TERRAIN` (topografie), `CLIMATE`, `CULTURE` en `CREDITS`. Elk antwoordregister is onderverdeeld in zes cyberpunk-bands: `civilian` (5–14), `noise` (17–27), `runner` (30–46), `operator` (49–65), `ghost` (68–82) en `singularity` (85–100).
 
 ## Kamer-state-machine
 

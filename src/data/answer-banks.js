@@ -173,6 +173,46 @@ const BANKS = {
       rare: 'a scribe, a surgeon, a pilot, an archivist, a mechanic, an old craftsman',
     },
   },
+  terrain: {
+    nl: {
+      common: 'een berg, een rivier, een eiland, een woestijn, een stad, een kaart, een meer, een bos, een kust, een vallei, een vulkaan, een grens',
+      rare: 'een hoogtelijn, een coördinaat, een trog, een karstgebied, een fjord, een delta',
+    },
+    en: {
+      common: 'a mountain, a river, an island, a desert, a city, a map, a lake, a forest, a coast, a valley, a volcano, a border',
+      rare: 'a contour line, a coordinate, a trench, a karst region, a fjord, a delta',
+    },
+  },
+  weather: {
+    nl: {
+      common: 'regen, sneeuw, wind, een wolk, een onweersbui, zon, mist, hagel, een storm, temperatuur, een regenboog, ijzel',
+      rare: 'een tornado, een orkaan, een stofstorm, een hagelstorm, een ijzelfront, een lagedrukgebied',
+    },
+    en: {
+      common: 'rain, snow, wind, a cloud, a thunderstorm, sun, fog, hail, a storm, temperature, a rainbow, sleet',
+      rare: 'a tornado, a hurricane, a dust storm, a hailstorm, an ice front, a low pressure area',
+    },
+  },
+  culture: {
+    nl: {
+      common: 'een lied, een film, een boek, een schilderij, een festival, een dans, een game, een band, een serie, een gedicht, een museum, een strip',
+      rare: 'synthwave, film noir, impressionisme, cyberpunk, shoegaze, ambient',
+    },
+    en: {
+      common: 'a song, a film, a book, a painting, a festival, a dance, a game, a band, a series, a poem, a museum, a comic',
+      rare: 'synthwave, film noir, impressionism, cyberpunk, shoegaze, ambient',
+    },
+  },
+  credits: {
+    nl: {
+      common: 'geld, munten, een creditcard, een bankbiljet, een prijs, een loon, een cadeau, een rekening, een spaarvarken, een coupon, een factuur, een donatie',
+      rare: 'bitcoin, een cheque, een obligatie, een aandeel, een lening, een cadeaubon',
+    },
+    en: {
+      common: 'money, coins, a credit card, a banknote, a prize, a salary, a gift, a bill, a piggy bank, a coupon, an invoice, a donation',
+      rare: 'bitcoin, a cheque, a bond, a share, a loan, a gift card',
+    },
+  },
 };
 
 const CATEGORY_CONCEPTS = {
@@ -184,6 +224,10 @@ const CATEGORY_CONCEPTS = {
   VOID: ['void', 'dream'],
   STREET: ['city', 'sound'],
   GLITCH: ['glitch', 'dream'],
+  TERRAIN: ['terrain', 'city'],
+  CLIMATE: ['weather', 'void'],
+  CULTURE: ['culture', 'message'],
+  CREDITS: ['credits', 'job'],
 };
 
 const CONCEPT_TAGS = {
@@ -202,6 +246,10 @@ const CONCEPT_TAGS = {
   dream: ['droom', 'dream', 'vreemd', 'strange', 'anomalie', 'anomaly', 'verschijnen', 'appear'],
   glitch: ['fout', 'error', 'defect', 'fault', 'vreemd', 'strange', 'anomalie', 'anomaly', 'storing', 'outage', 'beeld', 'image', 'per ongeluk', 'accident', 'tekst', 'text', 'woord', 'word', 'vastlopen', 'stuck', 'klok', 'clock', 'tijd', 'time', 'verschijnen', 'appear', 'systeem', 'system', 'computer', 'scherm', 'screen'],
   job: ['beroep', 'job', 'toekomst', 'future'],
+  terrain: ['berg', 'mountain', 'rivier', 'river', 'kaart', 'map', 'coördinaat', 'coordinate', 'landschap', 'landscape', 'hoogte', 'height', 'eiland', 'island', 'woestijn', 'desert', 'zee', 'sea', 'grens', 'border', 'topografie', 'topography'],
+  weather: ['weer', 'weather', 'klimaat', 'climate', 'neerslag', 'precipitation', 'wind', 'wolk', 'cloud', 'temperatuur', 'temperature', 'storm', 'seizoen', 'season', 'atmosfeer', 'atmosphere'],
+  culture: ['muziek', 'music', 'film', 'kunst', 'art', 'boek', 'book', 'genre', 'festival', 'dans', 'dance', 'game', 'serie', 'series', 'mode', 'fashion', 'subcultuur', 'subculture'],
+  credits: ['geld', 'money', 'betalen', 'payment', 'prijs', 'price', 'munt', 'coin', 'loon', 'salary', 'handel', 'trade', 'markt', 'market', 'schuld', 'debt', 'sparen', 'saving', 'crypto', 'inkomen', 'income'],
 };
 
 const REVERSE_TAGS = new Map();
@@ -269,10 +317,20 @@ export function weightedAnswers(question = {}, fallback = extraAnswers(question)
       for (const text of explicit[tier] || []) candidates.push({ text, tier });
     }
   }
-  for (const text of question.common || []) candidates.push({ text, tier: 'common' });
-  for (const text of fallback.common || []) candidates.push({ text, tier: 'common' });
-  for (const text of question.rare || []) candidates.push({ text, tier: 'rare' });
-  for (const text of fallback.rare || []) candidates.push({ text, tier: 'rare' });
+  // Ook zonder expliciet register krijgen communityvragen vier bands: de
+  // handgeschreven basis is civilian/ghost, de generieke bank noise/operator.
+  // Expliciete registers zijn comprehensief, maar de categorie-specifieke
+  // banken voegen extra synoniemen toe voor communityvragen en-held-out
+  // antwoorden. Voor expliciete vragen zijn de basisvelden al uit het register
+  // afgeleid, dus die hoeven niet opnieuw toegevoegd te worden.
+  if (!explicit) {
+    for (const text of question.common || []) candidates.push({ text, tier: 'civilian' });
+  }
+  for (const text of fallback.common || []) candidates.push({ text, tier: 'noise' });
+  if (!explicit) {
+    for (const text of question.rare || []) candidates.push({ text, tier: 'ghost' });
+  }
+  for (const text of fallback.rare || []) candidates.push({ text, tier: 'operator' });
 
   const seen = new Set();
   const answers = [];
@@ -291,10 +349,15 @@ export function expandQuestion(question) {
   const fallback = extraAnswers(question);
   const explicit = RECOGNITION[question.id];
   const answers = weightedAnswers(question, fallback);
+  const band = (tier) => answers.filter((entry) => entry.tier === tier).map((entry) => entry.text);
   return {
     ...question,
-    common: explicit ? [...(explicit.common || [])] : [...(question.common || []), ...fallback.common],
-    rare: explicit ? [...(explicit.rare || [])] : [...(question.rare || []), ...fallback.rare],
+    // legacy-velden blijven gevuld voor API en eventuele oude clients;
+    // de zes bands staan in `answers`.
+    common: explicit ? [...band('civilian'), ...band('noise')] : [...(question.common || []), ...fallback.common],
+    rare: explicit
+      ? [...band('runner'), ...band('operator'), ...band('ghost'), ...band('singularity')]
+      : [...(question.rare || []), ...fallback.rare],
     answers,
   };
 }

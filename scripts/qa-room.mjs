@@ -13,10 +13,10 @@ function apiMock(page) {
     const request = route.request();
     const url = new URL(request.url());
     if (url.pathname === '/api/questions') {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, items: [], library: { total: 224, base: 224, community: 0 }, categories: CATEGORIES }) });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, items: [], library: { total: 424, base: 424, community: 0 }, categories: CATEGORIES }) });
     }
     if (url.pathname === '/api/health') {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, storage: 'mock', questions: 224 }) });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, storage: 'mock', questions: 424 }) });
     }
     if (url.pathname === '/api/room') {
       try {
