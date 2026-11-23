@@ -28,7 +28,10 @@ if (started.room.phase !== 'question' || !started.room.question) throw new Error
 await post({ action: 'answer', code, playerId: `smoke-h-${stamp}`, answer: 'ballon' });
 await post({ action: 'answer', code, playerId: `smoke-g-${stamp}`, answer: 'een gerucht' });
 const hidden = await json(`/api/room?code=${code}&playerId=smoke-g-${stamp}`);
-if (Object.keys(hidden.room.answers || {}).length !== 1) throw new Error('Answers leaked before reveal');
+// All players answered, so the server may already have auto-revealed (1.2 s grace).
+if (hidden.room.phase === 'question' && Object.keys(hidden.room.answers || {}).length !== 1) {
+  throw new Error('Answers leaked before reveal');
+}
 
 const revealed = await post({ action: 'reveal', code, playerId: `smoke-h-${stamp}` });
 if (revealed.room.phase !== 'reveal' || Object.keys(revealed.room.answers).length !== 2) throw new Error('Reveal failed');
