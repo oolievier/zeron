@@ -1,6 +1,6 @@
 import { QUESTIONS } from '../../src/data/questions.js';
 import { normalize, scoreAnswer, seededShuffle } from '../../src/lib/scoring.js';
-import { readJSON, writeJSON, listPaths } from './store.js';
+import { readJSON, writeJSONConfirmed, listPaths } from './store.js';
 
 const CODE_ALPHABET = 'ACDEFGHJKLMNPQRTUVWXY3479';
 const MAX_PLAYERS = 8;
@@ -146,7 +146,7 @@ async function withRoom(code, mutator, playerId) {
     if (changed || outcome?.write !== false) {
       room.version = version + 1;
       room.updatedAt = now;
-      await writeJSON(path, room);
+      await writeJSONConfirmed(path, room);
     }
     return { room: publicRoom(room, playerId) };
   }
@@ -184,7 +184,7 @@ export async function createRoom(payload) {
   };
   const name = cleanName(payload.name) || 'HOST';
   room.players.push({ id: room.hostId, name, score: 0, streak: 0, joinedAt: Date.now(), lastSeen: Date.now() });
-  await writeJSON(roomPath(room.code), room);
+  await writeJSONConfirmed(roomPath(room.code), room);
   return { room: publicRoom(room, room.hostId) };
 }
 
@@ -196,13 +196,13 @@ export async function getRoom(code, playerId) {
   if (advance(room, now)) {
     room.version += 1;
     room.updatedAt = now;
-    await writeJSON(path, room);
+    await writeJSONConfirmed(path, room);
   }
   if (playerId) {
     const player = room.players.find((item) => item.id === playerId);
     if (player && room.phase !== 'finished') {
       player.lastSeen = now;
-      await writeJSON(path, room);
+      await writeJSONConfirmed(path, room);
     }
   }
   return { room: publicRoom(room, playerId) };

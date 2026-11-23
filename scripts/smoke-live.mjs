@@ -14,6 +14,22 @@ async function json(path, options = {}) {
   return data;
 }
 
+// Blob heeft soms een korte read-after-write-latentie tussen functie-instanties.
+async function eventually(path, options = {}, check = () => true, attempts = 8) {
+  let lastError;
+  for (let index = 0; index < attempts; index += 1) {
+    try {
+      const data = await json(path, options);
+      if (check(data)) return data;
+      lastError = new Error(`${path}: voorwaarde nog niet waar`);
+    } catch (error) {
+      lastError = error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+  throw lastError;
+}
+
 const post = (payload) => json('/api/room', { method: 'POST', body: JSON.stringify(payload) });
 const postAccount = (payload, headers) => json('/api/account', {
   method: 'POST', body: JSON.stringify(payload), headers,
@@ -38,10 +54,10 @@ await post({ action: 'answer', code, playerId: hostId, answer: source ? source.c
 await post({ action: 'answer', code, playerId: guestId, answer: 'flubberkabouter9000' });
 
 const hidden = await json(`/api/room?code=${code}&playerId=${guestId}`);
-// All players answered, so the server may already have auto-revealed (1.2 s grace).
-if (hidden.room.phase === 'question' && Object.keys(hidden.room.answers || {}).length !== 1) {
-  throw new Error('Answers leaked before reveal');
-}
+// De server mag al auto-revealen (1,2 s), maar vóór de reveal mag nooit een
+// antwoord van een andere speler zichtbaar zijn.
+const leaked = Object.keys(hidden.room.answers || {}).some((id) => id !== guestId);
+if (leaked) throw new Error('Answers leaked before reveal');
 
 const revealed = await post({ action: 'reveal', code, playerId: hostId });
 if (revealed.room.phase !== 'reveal' || Object.keys(revealed.room.answers).length !== 2) throw new Error('Reveal failed');
@@ -60,9 +76,10 @@ const token = registration.devLink.split('/').pop();
 const verified = await postAccount({ action: 'verify', token });
 if (!verified.session || !verified.account?.verified) throw new Error('Verification failed');
 const sessionHeaders = { 'X-Zeron-Session': verified.session };
-const me = await json('/api/account?action=me', { headers: sessionHeaders });
-if (me.account.email !== email) throw new Error('Session account mismatch');
-const saved = await postAccount({ action: 'saveRun', score: 512, mode: 'blitz', questions: 7 }, sessionHeaders);
+const me = await eventually('/api/account?action=me', { headers: sessionHeaders }, (data) => data.account?.email === email);
+const saved = await eventually('/api/account', {
+  method: 'POST', body: JSON.stringify({ action: 'saveRun', score: 512, mode: 'blitz', questions: 7 }), headers: sessionHeaders,
+}, (data) => data.account?.stats?.plays >= 1 && data.account?.stats?.best >= 512);
 if (saved.account.stats.plays < 1 || saved.account.stats.best < 512) throw new Error('saveRun failed');
 await postAccount({ action: 'logout' }, sessionHeaders);
 console.log('account flow OK:', email);

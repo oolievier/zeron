@@ -33,6 +33,21 @@ export async function writeJSON(path, value) {
   });
 }
 
+// Vercel Blob is kort eventual-consistent tussen functie-instanties. Bij kamers
+// wachten we daarom tot onze eigen versie weer leesbaar is vóór we antwoorden;
+// zo kan een directe reveal geen net geschreven antwoord missen.
+export async function writeJSONConfirmed(path, value) {
+  const result = await writeJSON(path, value);
+  if (token && typeof value?.version === 'number') {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const current = await readJSON(path);
+      if (current && current.version >= value.version) return result;
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    }
+  }
+  return result;
+}
+
 export async function listPaths(prefix) {
   if (!token) return [...memory.keys()].filter((path) => path.startsWith(prefix));
   const result = await list({ prefix, token });
