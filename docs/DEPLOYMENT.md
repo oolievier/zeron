@@ -10,14 +10,26 @@ De productie-infrastructuur staat al klaar:
 | Blob-store | `zeron-data` (private, id `store_A4YXwkOgkpnbln4U`) |
 | Env-var | `BLOB_READ_WRITE_TOKEN` (automatisch door Vercel aan de store gekoppeld) |
 | Build | Vite, `npm run build` → `dist/` |
-| Node | 22.x lokaal, Vercel project gebruikt 26.x |
+| Node | 22.x lokaal, Vercel runtime 26.x |
+| Live URL | **https://zeron-one.vercel.app** |
+| Productie-deployment | `dpl_8CfwGPhRoqS2kvPscmMnyV3FwvnK` (commit `4513c1e`) |
 
-## Flow
+## Huidige deploy-flow
 
-1. Push naar `main` op GitHub.
-2. Vercel Git-integratie bouwt en deploy automatisch.
-3. `/api/*` draait als Node serverless functions met toegang tot de Blob-store.
-4. De site is bereikbaar op het Vercel-project-domein; een custom domein kan in het dashboard worden toegevoegd.
+1. De productie-deployment is aangemaakt via de Vercel API met `gitSource` = `oolievier/zeron`, branch `main`.
+2. `/api/*` draait als Node serverless functions met toegang tot de private Blob-store.
+3. Vercel Authentication staat op **preview only**, dus de productie-site is publiek bereikbaar.
+4. De kamer- en communitydata staan in Blob; een custom domein kan in het dashboard worden toegevoegd.
+
+### Automatisch deployen bij pushes
+
+Het Vercel-project bestond al vóór de GitHub-repo en is nog niet via de Git-integratie gekoppeld. Koppel eenmalig:
+
+1. Open `https://vercel.com/oliviermastenbroek-gmailcoms-projects/zeron/settings/git`.
+2. Kies **Connect Git repository** → GitHub → `oolievier/zeron`.
+3. Produktie-branch: `main`. Build-instellingen staan al op Vite (`npm run build`, output `dist/`).
+
+Daarna bouwt elke push naar `main` automatisch. Tot die tijd: push naar GitHub en maak een deployment met `gitSource` op `main` (of gebruik `npx vercel --prod` na `vercel link`).
 
 ## Lokaal
 

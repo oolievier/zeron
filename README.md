@@ -57,7 +57,7 @@ Lees [`docs/SCORING.md`](docs/SCORING.md) voor de exacte formule en [`docs/ARCHI
 
 ## Deploy
 
-Het project staat op Vercel als `zeron` en wordt automatisch gebouwd vanaf `main` in de GitHub-repo. Zie [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+Het project staat live op **https://zeron-one.vercel.app** (Vercel-project `zeron`). De productie-deployment is gebouwd vanaf `main`; zie [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) voor de huidige status en het eenmalig koppelen van de Git-repo voor automatische pushes.
 
 ## Credits & analyse
 
