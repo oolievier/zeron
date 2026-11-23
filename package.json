@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test tests/*.test.js",
-    "smoke": "node scripts/smoke-live.mjs"
+    "smoke": "node scripts/smoke-live.mjs",
+    "qa:account": "node scripts/qa-account.mjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.0.0"

@@ -1,11 +1,13 @@
 // Live API smoke test against a deployed ZERON instance.
 // Usage: ZERON_URL=https://zeron-one.vercel.app node scripts/smoke-live.mjs
+import { QUESTIONS } from '../src/data/questions.js';
+
 const base = (process.env.ZERON_URL || 'https://zeron-one.vercel.app').replace(/\/$/, '');
 
-async function json(path, options) {
+async function json(path, options = {}) {
   const response = await fetch(`${base}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...(options?.headers || {}) },
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
   });
   const data = await response.json();
   if (!response.ok || data.ok === false) throw new Error(`${path}: ${response.status} ${JSON.stringify(data)}`);
@@ -13,29 +15,57 @@ async function json(path, options) {
 }
 
 const post = (payload) => json('/api/room', { method: 'POST', body: JSON.stringify(payload) });
+const postAccount = (payload, headers) => json('/api/account', {
+  method: 'POST', body: JSON.stringify(payload), headers,
+});
 const stamp = Date.now();
 
 const health = await json('/api/health');
 if (health.storage !== 'blob') throw new Error(`Expected blob storage, got ${health.storage}`);
 console.log('health OK:', health.questions, 'questions');
 
-const created = await post({ action: 'create', playerId: `smoke-h-${stamp}`, name: 'SMOKE_H', lang: 'nl', categories: [], rounds: 3, seconds: 30 });
+const hostId = `smoke-h-${stamp}`;
+const guestId = `smoke-g-${stamp}`;
+const created = await post({ action: 'create', playerId: hostId, name: 'SMOKE_H', lang: 'nl', categories: [], rounds: 3, seconds: 30 });
 const code = created.room.code;
-await post({ action: 'join', code, playerId: `smoke-g-${stamp}`, name: 'SMOKE_G' });
-const started = await post({ action: 'start', code, playerId: `smoke-h-${stamp}` });
+await post({ action: 'join', code, playerId: guestId, name: 'SMOKE_G' });
+const started = await post({ action: 'start', code, playerId: hostId });
 if (started.room.phase !== 'question' || !started.room.question) throw new Error('Room did not start');
 
-await post({ action: 'answer', code, playerId: `smoke-h-${stamp}`, answer: 'ballon' });
-await post({ action: 'answer', code, playerId: `smoke-g-${stamp}`, answer: 'een gerucht' });
-const hidden = await json(`/api/room?code=${code}&playerId=smoke-g-${stamp}`);
+// Kies een lijstantwoord van de echte vraag, zodat de score-asserties betekenis hebben.
+const source = QUESTIONS.find((item) => item.id === started.room.question.id);
+await post({ action: 'answer', code, playerId: hostId, answer: source ? source.common[0] : 'ballon' });
+await post({ action: 'answer', code, playerId: guestId, answer: 'flubberkabouter9000' });
+
+const hidden = await json(`/api/room?code=${code}&playerId=${guestId}`);
 // All players answered, so the server may already have auto-revealed (1.2 s grace).
 if (hidden.room.phase === 'question' && Object.keys(hidden.room.answers || {}).length !== 1) {
   throw new Error('Answers leaked before reveal');
 }
 
-const revealed = await post({ action: 'reveal', code, playerId: `smoke-h-${stamp}` });
+const revealed = await post({ action: 'reveal', code, playerId: hostId });
 if (revealed.room.phase !== 'reveal' || Object.keys(revealed.room.answers).length !== 2) throw new Error('Reveal failed');
-await post({ action: 'next', code, playerId: `smoke-h-${stamp}` });
+const good = revealed.room.answers[hostId];
+const bad = revealed.room.answers[guestId];
+if (source && !(good.points > 0)) throw new Error(`Listed answer scored ${good.points}`);
+if (!bad.wrong || bad.points !== 0 || bad.label?.key !== 'wrong') throw new Error('Wrong answer was not scored as wrong');
+console.log('scoring OK:', good.points, 'vs', bad.points, bad.label?.label);
+await post({ action: 'next', code, playerId: hostId });
+
+// Accountflow: register → verify (dev-link fallback) → me → saveRun → logout.
+const email = `smoke-${stamp}@zeron.test`;
+const registration = await postAccount({ action: 'register', email, name: 'SMOKE', password: 'smokepass99' });
+if (!registration.devLink) throw new Error('No verification link returned');
+const token = registration.devLink.split('/').pop();
+const verified = await postAccount({ action: 'verify', token });
+if (!verified.session || !verified.account?.verified) throw new Error('Verification failed');
+const sessionHeaders = { 'X-Zeron-Session': verified.session };
+const me = await json('/api/account?action=me', { headers: sessionHeaders });
+if (me.account.email !== email) throw new Error('Session account mismatch');
+const saved = await postAccount({ action: 'saveRun', score: 512, mode: 'blitz', questions: 7 }, sessionHeaders);
+if (saved.account.stats.plays < 1 || saved.account.stats.best < 512) throw new Error('saveRun failed');
+await postAccount({ action: 'logout' }, sessionHeaders);
+console.log('account flow OK:', email);
 
 const submission = await json('/api/questions', {
   method: 'POST',
