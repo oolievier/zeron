@@ -73,7 +73,7 @@ De UI rendert volledig opnieuw als de `roomSignature` verandert (`phase:round:ve
 - **Productie:** `@vercel/blob` met `BLOB_READ_WRITE_TOKEN` (private store `zeron-data`), paden zonder random suffix, `cacheControlMaxAge: 0`.
 - **Lokaal zonder token:** een `Map` in het proces. Handig voor tests en solo, niet gedeeld tussen serverless instanties.
 
-Elke mutatie leest de kamer, past die aan en schrijft het volledige JSON-object terug. Dat is atomair per blob, maar **last-write-wins** bij gelijktijdige schrijven. Voor een vriendenkamer is dat acceptabel; een echte transactiestore (Redis/Postgres) is de logische volgende stap bij zwaar gebruik.
+Elke mutatie leest de kamer, past die aan en schrijft het volledige JSON-object terug. Dat is atomair per blob, maar **last-write-wins** bij gelijktijdige schrijven. Omdat Blob kort eventual-consistent is, wacht `writeJSONConfirmed()` tot de weggeschreven `version` weer leesbaar is vóór de API antwoordt. Daardoor kan een directe `reveal` geen zojuist ingediend antwoord missen. Bij zwaar gelijktijdig gebruik blijft een echte transactiestore (Redis/Postgres) de logische volgende stap.
 
 ## Accounts en e-mailverificatie
 
