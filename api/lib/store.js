@@ -10,7 +10,9 @@ export const storageMode = token ? 'blob' : 'memory';
 
 export async function readJSON(path) {
   if (!token) return memory.has(path) ? JSON.parse(memory.get(path)) : null;
-  const result = await get(path, { token, access: 'private' });
+  // useCache:false omzeilt de edge-cache van private blobs; zonder dit kan een
+  // kamerlezing een oudere versie teruggeven dan de zojuist weggeschreven ene.
+  const result = await get(path, { token, access: 'private', useCache: false });
   // @vercel/blob v2 returns a stream-based response, not a Blob with .text().
   if (!result?.stream) return null;
   const text = await new Response(result.stream).text();
