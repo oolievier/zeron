@@ -15,6 +15,9 @@ ZERON is een eigen interpretatie van drie bestaande spellen — [PlayAscent](htt
 | **Party** | Host maakt een kamer met 5-letterige code; tot 8 spelers joinen via link/code. Gedeelde serverklok, verborgen antwoorden tot de reveal, live leaderboard, rematch. |
 | **Archive** | Doorzoekbare bibliotheek met alle basis- en communityvragen. |
 | **Submit** | Spelers sturen eigen vragen in; die worden direct aan de gedeelde bibliotheek toegevoegd. |
+| **Account** | E-mail + wachtwoord, e-mailverificatie, profiel en server-side statistieken. Gastspel kan gewoon. |
+
+De UI heeft een eigen bewegingslaag: periodieke glitch-bursts, een `SIGNAL SHIFT`-transitie tussen schermen en vragen, neon-scorebuizen die meegroeien met je punten en duidelijke rode `Fout`-schermen bij antwoorden die niet in de lijst staan. Animaties zijn decoratief, blokkeren de gameplay niet en respecteren `prefers-reduced-motion`.
 
 ## Snel starten
 
@@ -41,6 +44,9 @@ src/
   lib/audio.js         WebAudio-geluidseffecten (geen assets)
 api/
   room.js              kamers: create/join/start/answer/reveal/next/rematch
+  account.js           register/verify/login/me/saveRun/logout
+  lib/accounts.js      scrypt-hashes, sessies, verificatietokens
+  lib/mail.js          Resend-mail met dev-link fallback
   questions.js         communityvragen ophalen en indienen
   health.js            statusendpoint
   lib/rooms.js         kamer-state-machine en openbare projectie
@@ -52,7 +58,7 @@ docs/                  analyse, architectuur, scoring, deployment
 
 ## De kern in één alinea
 
-Elke vraag heeft een lijst met voor de hand liggende en zeldzame antwoorden. Een antwoord scoort 5–100 punten: bekende antwoorden laag, zeldzame hoog. In een kamer geldt daarnaast **uniekheid**: als jij als enige een antwoord geeft krijg je +18; elke echo kost 10 punten. Lengte en specificiteit geven kleine bonussen. De dagelijkse run gebruikt een deterministische seed, zodat iedereen dezelfde vragen krijgt — net als bij de drie inspiratiebronnen.
+Elke vraag heeft een lijst met voor de hand liggende en zeldzame antwoorden én een expliciete regel. Alleen antwoorden uit die lijst tellen: één typfout wordt automatisch hersteld (`een gerucnt` → `een gerucht`), alles wat er niet in staat is **fout met 0 punten**. Geldige antwoorden scoren 5–100 punten: bekende antwoorden laag, zeldzame hoog. In een kamer geldt daarnaast **uniekheid**: als jij als enige een antwoord geeft krijg je +18; elke echo kost 10 punten. De dagelijkse run gebruikt een deterministische seed, zodat iedereen dezelfde vragen krijgt — net als bij de drie inspiratiebronnen.
 
 Lees [`docs/SCORING.md`](docs/SCORING.md) voor de exacte formule en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) voor de kamer-state-machine.
 

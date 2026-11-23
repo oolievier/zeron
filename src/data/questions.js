@@ -1,6 +1,8 @@
 // ZERON vragenbibliotheek — 224 vragen totaal: 112 Nederlands (nl) / 112 Engels (en).
 // 28 vragen per categorie (14 NL + 14 EN), verdeeld over 8 categorieën.
 
+import { answerRule } from '../lib/scoring.js';
+
 export const CATEGORIES = {
   SIGNAL: { label: "Signaal", color: "#39FF14", icon: "📡" },
   GRID: { label: "Het Grid", color: "#00E5FF", icon: "🕸️" },
@@ -12,7 +14,8 @@ export const CATEGORIES = {
   GLITCH: { label: "Glitch", color: "#E0E0E0", icon: "⚡" },
 };
 
-export const QUESTIONS = [
+// Ruwe vragen: de regel wordt hieronder centraal toegevoegd.
+const RAW_QUESTIONS = [
   // ───────────────────────── SIGNAL (28) ─────────────────────────
   // Nederlands
   {
@@ -1613,3 +1616,10 @@ export const QUESTIONS = [
     tags: ["word", "system"],
   },
 ];
+
+// Elke vraag krijgt een expliciete regel. Bestaande vragen met een eigen rule
+// behouden die velden; answerRule vult alleen ontbrekende hints en de sectorhint in.
+export const QUESTIONS = RAW_QUESTIONS.map((question) => ({
+  ...question,
+  rule: answerRule(question),
+}));

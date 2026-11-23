@@ -360,6 +360,118 @@ input[type="range"] { width: 100%; accent-color: var(--cyan); height: 28px; }
   .room-code { font-size: 18vw; }
   .result-meta { grid-template-columns: 1fr; }
 }
+/* ─────────────────────────────────────────────────────────────
+   BEWEGINGSLAAG — glitches, transities, neon en score-animatie.
+   Alles is decoratief: de game-logica gebruikt geen van deze klassen.
+   ───────────────────────────────────────────────────────────── */
+
+/* Periodieke, korte glitch-burst (wordt door main.js ingeschakeld). */
+#glitch-layer { position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: 0; mix-blend-mode: screen; overflow: hidden; }
+.glitch-band { position: absolute; left: -12%; right: -12%; height: 2px; transform: translateX(-120%); }
+.band-a { top: 19%; background: var(--cyan); box-shadow: 0 0 16px var(--cyan), 0 13px 0 rgba(255,59,157,.45); }
+.band-b { top: 47%; height: 5px; background: rgba(255,59,157,.7); box-shadow: 0 0 26px var(--pink); }
+.band-c { top: 76%; height: 1px; background: var(--lime); box-shadow: 0 -11px 0 rgba(143,255,245,.35), 0 0 14px var(--lime); }
+.glitch-word { position: absolute; top: 44%; left: 50%; transform: translate(-50%, -50%); font: 900 clamp(64px, 18vw, 220px)/1 var(--mono); letter-spacing: .16em; white-space: nowrap; color: rgba(255,255,255,.035); -webkit-text-stroke: 1px rgba(143,255,245,.28); }
+.glitch-word::before, .glitch-word::after { content: attr(data-text); position: absolute; inset: 0; color: transparent; }
+.glitch-word::before { -webkit-text-stroke: 1px var(--cyan); clip-path: inset(8% 0 62% 0); transform: translateX(-7px); }
+.glitch-word::after { -webkit-text-stroke: 1px var(--pink); clip-path: inset(64% 0 12% 0); transform: translateX(7px); }
+body.glitch-burst #glitch-layer { opacity: 1; animation: glitchFlash .24s steps(2) both; }
+body.glitch-burst .glitch-band { animation: bandSweep .34s cubic-bezier(.2,.8,.2,1) both; }
+body.glitch-burst .band-b { animation-delay: .05s; }
+body.glitch-burst .band-c { animation-delay: .1s; }
+body.glitch-burst .glitch-word { animation: wordJitter .3s steps(3) both; }
+@keyframes glitchFlash { 0%,100% { opacity: 0; } 20%,60% { opacity: .9; } 40%,80% { opacity: .35; } }
+@keyframes bandSweep { from { transform: translateX(-120%) scaleY(.4); } to { transform: translateX(120%) scaleY(2); } }
+@keyframes wordJitter { 0% { transform: translate(-50%,-50%); } 33% { transform: translate(-52%,-49%) skewX(6deg); } 66% { transform: translate(-48%,-51%) skewX(-8deg); } 100% { transform: translate(-50%,-50%); } }
+
+/* Korte, niet-blokkerende signal-shift tussen schermen en vragen. */
+#transition-layer { position: fixed; inset: 0; z-index: 70; pointer-events: none; visibility: hidden; opacity: 0; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 50%, rgba(255,59,157,.1), transparent 55%), #03050c; }
+#transition-layer.active { visibility: visible; animation: shiftIn .52s cubic-bezier(.6,0,.3,1) both; }
+.transition-inner { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 24px 42px; border-top: 1px solid var(--cyan); border-bottom: 1px solid var(--pink); }
+.transition-inner strong { font: 900 clamp(56px, 12vw, 120px)/1 var(--mono); letter-spacing: .22em; color: var(--cyan); text-shadow: -4px 0 var(--pink), 4px 0 rgba(143,255,245,.45), 0 0 40px rgba(143,255,245,.4); }
+.transition-code { font: 700 10px var(--mono); letter-spacing: .4em; color: var(--pink); }
+.transition-line { position: absolute; left: -20%; right: -20%; bottom: -1px; height: 2px; background: linear-gradient(90deg, transparent, var(--cyan), var(--pink), transparent); animation: lineSweep .52s ease both; }
+#transition-layer.active .transition-inner { animation: innerShift .52s ease both; }
+@keyframes shiftIn { 0% { opacity: 0; clip-path: inset(50% 0 50% 0); } 18% { opacity: 1; clip-path: inset(0 0 0 0); } 72% { opacity: 1; clip-path: inset(0 0 0 0); } 100% { opacity: 0; clip-path: inset(0 0 50% 0); } }
+@keyframes innerShift { 0% { transform: scaleX(.3) skewX(-14deg); filter: blur(6px); } 45% { transform: scaleX(1) skewX(0); filter: blur(0); } 100% { transform: scale(1.04); filter: blur(2px); } }
+@keyframes lineSweep { from { transform: translateX(-45%); opacity: 0; } 50% { opacity: 1; } to { transform: translateX(45%); opacity: 0; } }
+body.is-shifting #app { filter: saturate(1.4) blur(1px); transition: filter .26s ease; }
+
+/* Inkomende panelen: geen harde knip meer tussen vragen/fases. */
+.enter-up { animation: enterUp .5s cubic-bezier(.2,.8,.2,1) both; }
+.enter-pop { animation: enterPop .5s cubic-bezier(.2,1.35,.35,1) both; }
+@keyframes enterUp { from { opacity: 0; transform: translateY(26px) scale(.985); filter: blur(4px); } to { opacity: 1; transform: none; filter: blur(0); } }
+@keyframes enterPop { from { opacity: 0; transform: scale(.94); filter: blur(3px); } to { opacity: 1; transform: none; filter: blur(0); } }
+
+/* Neon-typografie met een subtiele chroma-shift op de vraag. */
+.glitch-text { position: relative; text-shadow: 0 0 22px rgba(143,255,245,.14); }
+.glitch-text::before, .glitch-text::after { content: attr(data-text); position: absolute; left: 0; top: 0; right: 0; pointer-events: none; opacity: .55; }
+.glitch-text::before { color: var(--cyan); clip-path: inset(0 0 68% 0); transform: translateX(-2px); animation: chromaA 5.5s steps(1) infinite; }
+.glitch-text::after { color: var(--pink); clip-path: inset(72% 0 0 0); transform: translateX(2px); animation: chromaB 7.3s steps(1) infinite; }
+@keyframes chromaA { 0%,92%,100% { opacity: 0; } 94% { opacity: .5; transform: translateX(-8px); } 96% { opacity: .15; transform: translateX(3px); } }
+@keyframes chromaB { 0%,89%,100% { opacity: 0; } 91% { opacity: .5; transform: translateX(9px); } 93% { opacity: .2; transform: translateX(-4px); } }
+.kicker { animation: kickerPulse 4.5s ease-in-out infinite; }
+@keyframes kickerPulse { 0%,100% { opacity: .75; } 50% { opacity: 1; text-shadow: 0 0 12px currentColor; } }
+.mode-card::after { content: ''; position: absolute; left: -60%; top: 0; width: 40%; height: 100%; background: linear-gradient(90deg, transparent, rgba(143,255,245,.12), transparent); transform: skewX(-20deg); transition: left .5s ease; }
+.mode-card { position: relative; overflow: hidden; }
+.mode-card:hover::after { left: 120%; }
+.btn-primary { animation: neonBreath 3.4s ease-in-out infinite; }
+@keyframes neonBreath { 0%,100% { box-shadow: 0 0 0 rgba(255,59,157,0); } 50% { box-shadow: 0 0 22px rgba(255,59,157,.22); } }
+
+/* Zichtbare 'hoogte' van je score: een neon-buis die omhoog groeit. */
+.score-lift { display: grid; grid-template-columns: auto 18px 1fr; gap: 14px; align-items: center; margin: 14px 0 6px; padding: 12px 14px; border: 1px solid var(--line); background: linear-gradient(90deg, rgba(143,255,245,.05), transparent); }
+.lift-label { font: 700 9px var(--mono); letter-spacing: .22em; color: var(--dim); writing-mode: vertical-rl; transform: rotate(180deg); text-align: center; }
+.lift-shaft { position: relative; height: 84px; border: 1px solid var(--line-strong); background: repeating-linear-gradient(to top, rgba(143,255,245,.14) 0 1px, transparent 1px 14px); overflow: visible; }
+.score-lift.compact .lift-shaft { height: 60px; }
+.lift-fill { position: absolute; left: 1px; right: 1px; bottom: 1px; height: 0; background: linear-gradient(0deg, var(--lift-color), rgba(255,255,255,.85)); box-shadow: 0 0 20px var(--lift-color); animation: liftGrow 1.1s cubic-bezier(.2,.9,.2,1) .1s forwards; }
+.lift-cap { position: absolute; left: -5px; right: -5px; bottom: 0; height: 3px; background: var(--lift-color); box-shadow: 0 0 16px var(--lift-color), 0 0 4px #fff; animation: capRise 1.1s cubic-bezier(.2,.9,.2,1) .1s forwards; }
+.lift-shaft::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, transparent 70%, rgba(255,255,255,.06)); pointer-events: none; }
+.lift-readout { display: flex; align-items: baseline; gap: 8px; }
+.lift-readout strong { font: 800 clamp(28px, 5vw, 46px)/1 var(--mono); color: var(--lift-color); text-shadow: 0 0 24px var(--lift-color); }
+.lift-readout small { font: 700 11px var(--mono); color: var(--dim); }
+@keyframes liftGrow { from { height: 0; } to { height: var(--lift); } }
+@keyframes capRise { from { bottom: 0; } to { bottom: var(--lift); } }
+
+/* Fout antwoorden: rood, 0 punten, geen rarity-label. */
+.wrong-card { animation: wrongShake .42s ease-out both; border-color: rgba(255,66,93,.55); box-shadow: inset 0 0 60px rgba(255,66,93,.08), 0 0 30px rgba(255,66,93,.1); }
+@keyframes wrongShake { 0%,100% { transform: translateX(0); } 15% { transform: translateX(-8px) skewX(2deg); } 35% { transform: translateX(7px); } 55% { transform: translateX(-4px); } 75% { transform: translateX(2px); } }
+.wrong-body { margin: 12px 0 0; color: var(--red); font: 600 12px/1.7 var(--mono); letter-spacing: .04em; }
+.feed-wrong, .review-wrong, .wrong-row { background: rgba(255,66,93,.06); }
+.rule-line { display: flex; gap: 10px; align-items: baseline; margin: 12px 0 0; padding: 9px 12px; border-left: 2px solid var(--cyan); background: rgba(143,255,245,.05); }
+.rule-line span { font: 700 9px var(--mono); letter-spacing: .2em; color: var(--cyan); white-space: nowrap; }
+.rule-line p { margin: 0; font-size: 11px; line-height: 1.6; color: var(--muted); }
+
+/* Account-schermen. */
+.account-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.account-grid .form-panel:nth-child(2) { animation-delay: .1s; }
+.verify-box { margin-top: 16px; border-color: var(--pink); box-shadow: inset 0 0 50px rgba(255,59,157,.08); }
+.verify-box h2 { margin: 10px 0 6px; font: 800 17px var(--mono); letter-spacing: .12em; }
+.verify-box p { margin: 0 0 10px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.verify-box .verify-email { color: var(--cyan); font-family: var(--mono); }
+.verify-box > small { display: block; margin-top: 10px; color: var(--dim); font: 600 9px var(--mono); letter-spacing: .16em; }
+.account-profile { padding: 0 !important; overflow: hidden; }
+.profile-head { display: flex; align-items: center; gap: 18px; padding: 26px; border-bottom: 1px solid var(--line); }
+.profile-avatar { display: grid; place-items: center; width: 62px; height: 62px; flex-shrink: 0; border: 1px solid var(--cyan); clip-path: var(--clip); background: linear-gradient(135deg, rgba(143,255,245,.16), rgba(255,59,157,.16)); font: 800 28px var(--mono); color: var(--cyan); text-shadow: 0 0 18px var(--cyan); }
+.profile-head h2 { margin: 4px 0; font: 800 22px var(--mono); letter-spacing: .12em; }
+.profile-head small { color: var(--muted); font-size: 12px; }
+.verify-pill { margin-left: auto; padding: 7px 10px; font: 700 9px var(--mono); letter-spacing: .12em; border: 1px solid currentColor; }
+.verify-pill.ok { color: var(--lime); background: rgba(212,255,79,.08); }
+.verify-pill.pending { color: var(--amber); background: rgba(255,191,95,.08); }
+.profile-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); }
+.profile-stats > div { display: flex; flex-direction: column; gap: 6px; padding: 20px; background: var(--panel-solid); }
+.profile-stats span { font: 700 9px var(--mono); letter-spacing: .16em; color: var(--dim); }
+.profile-stats strong { font: 800 30px var(--mono); color: var(--cyan); text-shadow: 0 0 20px rgba(143,255,245,.3); }
+.profile-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 26px; color: var(--dim); font: 600 10px var(--mono); letter-spacing: .1em; }
+.profile-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+@media (max-width: 720px) {
+  .account-grid { grid-template-columns: 1fr; }
+  .lift-label { display: none; }
+  .score-lift { grid-template-columns: 18px 1fr; }
+  .profile-head { flex-wrap: wrap; }
+  .verify-pill { margin-left: 0; }
+  .profile-foot { flex-direction: column; align-items: flex-start; }
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
 }

@@ -41,6 +41,21 @@ const NL = {
   'common.back': 'TERUG', 'common.close': 'SLUITEN', 'common.loading': 'VERBINDEN MET GRID…', 'common.error': 'Verbinding mislukt.',
   'common.offline': 'API niet bereikbaar — solo werkt lokaal, party niet.', 'common.cancel': 'ANNULEREN',
   'result.points': 'PUNTEN', 'result.copy': 'KOPIEER',
+  'nav.account': 'ACCOUNT',
+  'account.title': 'SPELDERACCOUNT', 'account.subtitle': 'Maak een account, verifieer je e-mail en neem je scores overal mee.',
+  'account.login': 'INLOGGEN', 'account.register': 'ACCOUNT MAKEN', 'account.logout': 'UITLOGGEN',
+  'account.email': 'E-EMAIL', 'account.password': 'WACHTWOORD', 'account.name': 'CALLSIGN',
+  'account.loginBtn': 'LOG IN', 'account.registerBtn': 'MAAK ACCOUNT',
+  'account.haveAccount': 'Heb je al een account?', 'account.noAccount': 'Nog geen account?',
+  'account.verifyTitle': 'VERIFICEER JE E-MAIL', 'account.verifyDesc': 'We hebben een verificatielink klaargezet. Klik hieronder om je account direct te activeren.',
+  'account.verifyBtn': 'VERIFICEER NU', 'account.sent': 'Verificatie verzonden.',
+  'account.verified': 'E-MAIL GEVERIFIEERD', 'account.unverified': 'E-MAIL NOG NIET GEVERIFIEERD',
+  'account.resend': 'VERSTUUR LINK OPNIEUW', 'account.welcome': 'WELKOM TERUG',
+  'account.best': 'BESTE SCORE', 'account.plays': 'RUNS', 'account.streak': 'STREAK', 'account.member': 'LID SINDS',
+  'account.profile': 'PROFIEL', 'account.localOnly': 'Je speelt met een lokaal profiel.',
+  'wrong.title': 'Fout', 'wrong.body': 'Dit antwoord staat niet in de antwoordlijst van dit signaal.',
+  'wrong.rule': 'REGEL', 'wrong.allowed': 'TOEGESTAAN', 'wrong.tryAgain': 'Een typfout wordt automatisch hersteld als het antwoord daardoor wél klopt.',
+  'transition.shift': 'SIGNAL SHIFT', 'score.altitude': 'SCORE HOOGTE', 'score.peak': 'PIEK',
 };
 
 const EN = {
@@ -86,6 +101,21 @@ const EN = {
   'common.back': 'BACK', 'common.close': 'CLOSE', 'common.loading': 'CONNECTING TO GRID…', 'common.error': 'Connection failed.',
   'common.offline': 'API unreachable — solo works locally, party does not.', 'common.cancel': 'CANCEL',
   'result.points': 'POINTS', 'result.copy': 'COPY',
+  'nav.account': 'ACCOUNT',
+  'account.title': 'PLAYER ACCOUNT', 'account.subtitle': 'Create an account, verify your email and carry your scores everywhere.',
+  'account.login': 'LOG IN', 'account.register': 'CREATE ACCOUNT', 'account.logout': 'LOG OUT',
+  'account.email': 'EMAIL', 'account.password': 'PASSWORD', 'account.name': 'CALLSIGN',
+  'account.loginBtn': 'LOG IN', 'account.registerBtn': 'CREATE ACCOUNT',
+  'account.haveAccount': 'Already have an account?', 'account.noAccount': 'No account yet?',
+  'account.verifyTitle': 'VERIFY YOUR EMAIL', 'account.verifyDesc': 'A verification link is ready. Use the button below to activate your account right away.',
+  'account.verifyBtn': 'VERIFY NOW', 'account.sent': 'Verification sent.',
+  'account.verified': 'EMAIL VERIFIED', 'account.unverified': 'EMAIL NOT VERIFIED YET',
+  'account.resend': 'RESEND LINK', 'account.welcome': 'WELCOME BACK',
+  'account.best': 'BEST SCORE', 'account.plays': 'RUNS', 'account.streak': 'STREAK', 'account.member': 'MEMBER SINCE',
+  'account.profile': 'PROFILE', 'account.localOnly': 'You are playing with a local profile.',
+  'wrong.title': 'WRONG', 'wrong.body': 'This answer is not in the answer list for this signal.',
+  'wrong.rule': 'RULE', 'wrong.allowed': 'ALLOWED', 'wrong.tryAgain': 'A typo is corrected automatically if it then matches a listed answer.',
+  'transition.shift': 'SIGNAL SHIFT', 'score.altitude': 'SCORE ALTITUDE', 'score.peak': 'PEAK',
 };
 
 export const I18N = { nl: NL, en: EN };

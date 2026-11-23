@@ -1,7 +1,7 @@
 import './styles.css';
 import { QUESTIONS, CATEGORIES } from './data/questions.js';
 import { normalize, scoreAnswer, seededShuffle, dailySeed, rarityLabel } from './lib/scoring.js';
-import { api } from './lib/api.js';
+import { api, getSession, setSession } from './lib/api.js';
 import { sfx, setSound } from './lib/audio.js';
 import { translator } from './i18n.js';
 
@@ -14,8 +14,11 @@ const defaults = {
   name: '',
   lang: 'nl',
   sound: true,
+  account: null,
   stats: { best: 0, plays: 0, streak: 0, daily: null, history: [] },
 };
+
+const WRONG_LABEL = { key: 'wrong', label: 'Fout', color: '#ff425d' };
 
 function loadState() {
   try {
@@ -53,9 +56,68 @@ function toast(message, kind = 'info') {
   toast.timer = setTimeout(() => toastEl.classList.remove('visible'), 3200);
 }
 
-function go(path) {
-  if (location.hash === `#${path}`) renderRoute();
-  else location.hash = path;
+let glitchTimer = null;
+let transitionTimer = null;
+
+function scheduleGlitch() {
+  clearTimeout(glitchTimer);
+  glitchTimer = setTimeout(() => {
+    if (!document.hidden) {
+      document.body.classList.add('glitch-burst');
+      setTimeout(() => document.body.classList.remove('glitch-burst'), 140 + Math.random() * 220);
+    }
+    scheduleGlitch();
+  }, 4500 + Math.random() * 9000);
+}
+
+function runTransition(midpoint) {
+  const layer = document.getElementById('transition-layer');
+  const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  if (!layer || reduced) {
+    midpoint();
+    return;
+  }
+  clearTimeout(transitionTimer);
+  layer.classList.remove('active');
+  void layer.offsetWidth;
+  layer.classList.add('active');
+  document.body.classList.add('is-shifting');
+  transitionTimer = setTimeout(() => {
+    midpoint();
+    setTimeout(() => {
+      layer.classList.remove('active');
+      document.body.classList.remove('is-shifting');
+    }, 260);
+  }, 520);
+}
+
+function go(path, instant = false) {
+  if (instant) {
+    if (location.hash === `#${path}`) renderRoute();
+    else location.hash = path;
+    return;
+  }
+  runTransition(() => {
+    if (location.hash === `#${path}`) renderRoute();
+    else location.hash = path;
+  });
+}
+
+function animateCounts() {
+  document.querySelectorAll('.count-up').forEach((element) => {
+    const target = Number(element.dataset.target || 0);
+    if (element.dataset.animated === '1') return;
+    element.dataset.animated = '1';
+    const started = performance.now();
+    const duration = 900;
+    const step = (now) => {
+      const progress = Math.min(1, (now - started) / duration);
+      const eased = 1 - (1 - progress) ** 3;
+      element.textContent = String(Math.round(target * eased)).padStart(String(target).length, '0');
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
 }
 
 function logo() {
@@ -63,21 +125,20 @@ function logo() {
 }
 
 function header(active) {
-  const links = [
-    ['/', 'nav.solo'], ['/setup', 'nav.solo'], ['/party', 'nav.party'],
-    ['/archive', 'nav.archive'], ['/submit', 'nav.submit'], ['/how', 'nav.how'],
-  ];
   const nav = [
-    ['/', 'nav.solo'], ['/party', 'nav.party'], ['/archive', 'nav.archive'], ['/submit', 'nav.submit'], ['/how', 'nav.how'],
+    ['/', 'nav.solo'], ['/party', 'nav.party'], ['/archive', 'nav.archive'], ['/submit', 'nav.submit'],
+    ['/how', 'nav.how'], ['/account', 'nav.account'],
   ];
+  const accountLabel = state.account ? String(state.account.name || '').slice(0, 10).toUpperCase() : t('nav.account');
   return `<header class="topbar">
     <a class="brand" href="#/" data-sfx>${logo()}</a>
     <nav class="nav" aria-label="Hoofdnavigatie">
-      ${nav.map(([path, key]) => `<a href="#${path}" class="nav-link ${active === path || (active === '/setup' && path === '/') ? 'active' : ''}">${t(key)}</a>`).join('')}
+      ${nav.map(([path, key]) => `<a href="#${path}" class="nav-link ${active === path || (active === '/setup' && path === '/') || (active === '/verify' && path === '/account') ? 'active' : ''}">${t(key)}</a>`).join('')}
     </nav>
     <div class="top-actions">
       <button class="icon-btn" data-act="lang" title="NL / EN" aria-label="Taal wisselen">${state.lang.toUpperCase()}</button>
       <button class="icon-btn" data-act="sound" title="Geluid" aria-label="Geluid aan/uit">${state.sound ? '◖))' : '◖×'}</button>
+      <button class="icon-btn account-btn ${state.account ? 'signed-in' : ''}" data-act="account" title="${esc(accountLabel)}">${esc(accountLabel)}</button>
     </div>
   </header>`;
 }
@@ -134,9 +195,9 @@ function renderHome() {
           <a class="btn btn-ghost" href="#/party" data-sfx>${t('home.ctaParty')} <span>↗</span></a>
         </div>
         <div class="hero-stats">
-          <div><strong data-count>${allQuestions().length}</strong><span>${t('home.questions')}</span></div>
-          <div><strong>${stats.best || '000'}</strong><span>${t('home.best')}</span></div>
-          <div><strong>${stats.plays || '0'}</strong><span>${t('home.played')}</span></div>
+          <div><strong class="count-up" data-target="${allQuestions().length}">0</strong><span>${t('home.questions')}</span></div>
+          <div><strong class="count-up" data-target="${stats.best || 0}">0</strong><span>${t('home.best')}</span></div>
+          <div><strong class="count-up" data-target="${stats.plays || 0}">0</strong><span>${t('home.played')}</span></div>
         </div>
       </div>
       <div class="hero-art" aria-hidden="true">
@@ -155,6 +216,7 @@ function renderHome() {
     </section>
   `, '/');
   bindCommon();
+  animateCounts();
 }
 
 /* ---------------- Setup ---------------- */
@@ -218,6 +280,21 @@ function renderSetup() {
   });
 }
 
+function scoreLift(points, max = 100, compact = false) {
+  const value = Math.max(0, Math.min(max, Number(points) || 0));
+  const pct = Math.round((value / max) * 100);
+  return `<div class="score-lift ${compact ? 'compact' : ''}" style="--lift:${pct}%;--lift-color:${value === 0 ? WRONG_LABEL.color : (rarityLabel(value).color)}">
+    <span class="lift-label">${t('score.altitude')}</span>
+    <div class="lift-shaft"><i class="lift-fill"></i><span class="lift-ticks"></span><b class="lift-cap"></b></div>
+    <div class="lift-readout"><strong class="count-up" data-target="${value}">0</strong><small>/ ${max}</small></div>
+  </div>`;
+}
+
+function ruleLine(question) {
+  const hint = question?.rule?.hint || t('wrong.body');
+  return `<div class="rule-line"><span>${t('wrong.rule')}</span><p>${esc(hint)}</p></div>`;
+}
+
 /* ---------------- Solo game ---------------- */
 
 function clockBar(endAt, totalSeconds) {
@@ -234,24 +311,28 @@ function renderSoloGame() {
   let body;
 
   if (game.phase === 'question') {
-    body = `<div class="question-card panel">
+    body = `<div class="question-card panel enter-up">
       <div class="question-meta"><span class="sector-tag" style="--chip:${(CATEGORIES[question.category] || {}).color || '#8ffff5'}">${esc((CATEGORIES[question.category] || {}).icon || '◆')} ${esc(question.category)}</span><span class="round-index">${String(game.index + 1).padStart(2, '0')} / ${String(game.questions.length).padStart(2, '0')}</span></div>
-      <h2 class="question-prompt">${esc(question.prompt)}</h2>
+      <h2 class="question-prompt glitch-text" data-text="${esc(question.prompt)}">${esc(question.prompt)}</h2>
+      ${ruleLine(question)}
       <form id="answer-form" class="answer-form" autocomplete="off">
         <input id="answer-input" name="answer" maxlength="60" placeholder="${t('room.placeholder')}" autofocus />
         <button class="btn btn-primary" type="submit">${t('room.send')} <span>↗</span></button>
       </form>
-      <div class="question-foot"><span>↵ ${t('room.send')}</span><span>25s // RARITY SCORING</span></div>
+      <div class="question-foot"><span>↵ ${t('room.send')}</span><span>${game.settings.seconds}s // RARITY SCORING</span></div>
     </div>`;
   } else {
     const answer = last;
-    const label = answer?.label || rarityLabel(0);
-    body = `<div class="reveal-card panel" style="--reveal:${label.color}">
-      <div class="reveal-top"><span class="kicker">${t('room.reveal')}</span><strong class="points-pop">+${answer?.points ?? 0}</strong></div>
-      <div class="badge" style="--chip:${label.color}">${esc(label.label)}</div>
+    const wrong = Boolean(answer?.wrong || answer?.ok === false);
+    const label = answer?.label || (wrong ? WRONG_LABEL : rarityLabel(0));
+    body = `<div class="reveal-card panel ${wrong ? 'wrong-card' : 'enter-pop'}" style="--reveal:${label.color}">
+      <div class="reveal-top"><span class="kicker">${wrong ? t('wrong.title') : t('room.reveal')}</span><strong class="points-pop count-up" data-target="${answer?.points ?? 0}">0</strong></div>
+      <div class="badge" style="--chip:${label.color}">${esc(wrong ? t('wrong.title') : label.label)}</div>
       <p class="reveal-answer">${esc(answer?.text || t('room.noAnswer'))}</p>
+      ${wrong ? `<p class="wrong-body">${esc(t('wrong.body'))} ${esc(t('wrong.tryAgain'))}</p>` : ''}
       ${answer?.corrected ? `<p class="typo-note">AUTOCORRECT → ${esc(answer.corrected)}</p>` : ''}
       <div class="notes">${(answer?.notes || []).map((note) => `<span>${esc(note)}</span>`).join('') || '<span>—</span>'}</div>
+      ${scoreLift(answer?.points ?? 0, 100, true)}
       <button class="btn btn-primary reveal-next" data-act="solo-next">${game.index + 1 >= game.questions.length ? t('solo.result') : t('solo.next')} <span>↗</span></button>
     </div>`;
   }
@@ -260,7 +341,7 @@ function renderSoloGame() {
     <div class="game-hud">
       <div class="hud-block"><span>${t('solo.round')}</span><strong>${String(game.index + 1).padStart(2, '0')}<small>/${String(game.questions.length).padStart(2, '0')}</small></strong></div>
       <div class="hud-block hud-timer"><span>${t('solo.time')}</span>${clockBar(game.endsAt, game.settings.seconds)}</div>
-      <div class="hud-block"><span>${t('solo.score')}</span><strong class="score-readout">${String(game.score).padStart(3, '0')}</strong></div>
+      <div class="hud-block"><span>${t('solo.score')}</span><strong class="score-readout count-up" data-target="${game.score}">0</strong></div>
       <div class="hud-block"><span>${t('solo.streak')}</span><strong>×${game.streak}</strong></div>
     </div>
     <div class="progress-track">${progress}</div>
@@ -269,13 +350,14 @@ function renderSoloGame() {
       <aside class="game-side panel">
         <span class="kicker">// LIVE FEED</span>
         <div class="feed" id="solo-feed">${game.answers.length
-          ? [...game.answers].reverse().map((answer) => `<div class="feed-row"><span>${esc(answer.text)}</span><b style="color:${answer.label.color}">+${answer.points}</b></div>`).join('')
+          ? [...game.answers].reverse().map((answer) => `<div class="feed-row ${answer.wrong ? 'feed-wrong' : ''}"><span>${esc(answer.text)}</span><b style="color:${answer.label?.color || (answer.wrong ? WRONG_LABEL.color : '#fff')}">${answer.wrong ? '' : '+'}${answer.points ?? 0}</b></div>`).join('')
           : '<div class="feed-empty">NO SIGNAL YET</div>'}</div>
         <div class="side-foot"><span>RARITY ENGINE v1</span><span>OFFLINE MODEL</span></div>
       </aside>
     </div>
   </section>`, '/', 'game-body');
   bindCommon();
+  animateCounts();
   if (game.phase === 'question') {
     document.getElementById('answer-form').addEventListener('submit', submitSoloAnswer);
     setTimeout(() => document.getElementById('answer-input')?.focus(), 60);
@@ -290,8 +372,10 @@ function submitSoloAnswer(event) {
   const input = document.getElementById('answer-input');
   const raw = input.value;
   const result = scoreAnswer({ raw, question: game.questions[game.index], peerAnswers: [] });
-  if (!result.ok) {
-    toast(`Antwoord afgewezen: ${result.reason}`, 'error');
+  // Een fout antwoord wordt wél genoteerd (met 0 punten), zodat de speler
+  // duidelijk ziet dát het fout is en waarom. Alleen lege input blijft staan.
+  if (!raw.trim()) {
+    toast(t('wrong.body'), 'error');
     sfx.error();
     input.focus();
     return;
@@ -300,14 +384,19 @@ function submitSoloAnswer(event) {
   game.score += result.points;
   game.streak = result.points >= 75 ? game.streak + 1 : 0;
   game.phase = 'reveal';
-  sfx.reveal(result.points);
+  if (result.wrong) {
+    sfx.error();
+    toast(`${t('wrong.title')} · ${result.reason || 'NOT_IN_LIST'}`, 'error');
+  } else {
+    sfx.reveal(result.points);
+  }
   renderSoloGame();
 }
 
 function soloTimeout() {
   const game = state.solo;
   if (!game || game.phase !== 'question') return;
-  const result = { ok: false, points: 0, label: { key: 'missed', label: t('solo.missed'), color: '#ff425d' }, notes: ['CLOCK EXPIRED'], normalized: '' };
+  const result = { ok: false, wrong: true, points: 0, reason: 'TIMEOUT', label: { key: 'missed', label: t('solo.missed'), color: '#ff425d' }, notes: ['CLOCK EXPIRED'], normalized: '' };
   game.answers.push({ text: t('room.noAnswer'), ...result });
   game.streak = 0;
   game.phase = 'reveal';
@@ -315,7 +404,7 @@ function soloTimeout() {
   renderSoloGame();
 }
 
-function finishSolo() {
+async function finishSolo() {
   const game = state.solo;
   if (!game) return go('/setup');
   const stats = state.stats;
@@ -329,6 +418,15 @@ function finishSolo() {
   stats.history = stats.history.slice(0, 20);
   saveState();
   sfx.win();
+  if (state.account) {
+    try {
+      const response = await api.account.saveRun({ score: game.score, mode: game.settings.mode, questions: game.questions.length });
+      state.account = response.account;
+      saveState();
+    } catch {
+      // Server niet bereikbaar: lokale statistieken blijven leidend in de UI.
+    }
+  }
   go('/result');
 }
 
@@ -340,14 +438,15 @@ function renderResult() {
   app.innerHTML = shell(`<section class="narrow result-screen">
     ${sectionTitle('DEBRIEF / SOLO', t('solo.result'))}
     <div class="panel result-panel">
-      <div class="result-score"><strong>${String(game.score).padStart(3, '0')}</strong><span>/ ${max}</span></div>
+      <div class="result-score"><strong class="count-up" data-target="${game.score}">0</strong><span>/ ${max}</span></div>
       <div class="result-meter"><i style="width:${pct}%"></i></div>
       <div class="result-meta"><div><span>${t('solo.best')}</span><strong>${state.stats.best}</strong></div><div><span>${t('solo.streak')}</span><strong>×${state.stats.streak}</strong></div><div><span>${t('solo.review')}</span><strong>${game.answers.length}</strong></div></div>
-      <div class="review-list">${game.answers.map((answer, index) => `<div class="review-row"><span class="review-num">${String(index + 1).padStart(2, '0')}</span><div><small>${esc(game.questions[index]?.prompt || '')}</small><strong>${esc(answer.text)}</strong></div><b style="color:${answer.label.color}">+${answer.points}<small>${esc(answer.label.label)}</small></b></div>`).join('')}</div>
+      <div class="review-list">${game.answers.map((answer, index) => `<div class="review-row ${answer.wrong ? 'review-wrong' : ''}"><span class="review-num">${String(index + 1).padStart(2, '0')}</span><div><small>${esc(game.questions[index]?.prompt || '')}</small><strong>${esc(answer.text)}</strong></div><b style="color:${answer.label?.color || (answer.wrong ? WRONG_LABEL.color : '#fff')}">${answer.wrong ? '' : '+'}${answer.points ?? 0}<small>${esc(answer.label?.label || '')}</small></b></div>`).join('')}</div>
       <div class="form-actions"><a class="btn btn-primary" href="#/setup" data-sfx>${t('solo.playAgain')} <span>↗</span></a><button class="btn btn-flat" data-act="share-result">${t('solo.share')}</button><a class="btn btn-flat" href="#/">${t('common.back')}</a></div>
     </div>
   </section>`, '/result');
   bindCommon();
+  animateCounts();
 }
 
 /* ---------------- Party ---------------- */
@@ -437,6 +536,14 @@ function roomSignature(room) {
   return `${room.phase}:${room.round}:${room.version}:${room.players.map((p) => `${p.id}${p.hasAnswered}`).join(',')}`;
 }
 
+let lastRoomView = '';
+function roomEnterClass(room) {
+  const key = `${room.phase}:${room.round}`;
+  const animate = key !== lastRoomView;
+  lastRoomView = key;
+  return animate ? 'enter-up' : '';
+}
+
 async function pollRoom() {
   if (!state.room) return;
   try {
@@ -466,8 +573,9 @@ function renderRoom(preserveInput = false) {
   const standings = room.leaderboard.map((row) => `<div class="stand-row ${row.id === state.playerId ? 'me' : ''}"><span>${String(row.rank).padStart(2, '0')}</span><b>${esc(row.name)}</b><strong>${row.score}</strong></div>`).join('');
 
   let phaseContent = '';
+  const enter = roomEnterClass(room);
   if (room.phase === 'lobby') {
-    phaseContent = `<div class="lobby-card panel">
+    phaseContent = `<div class="lobby-card panel ${enter}">
       <span class="kicker">${t('room.lobby')}</span>
       <div class="room-code" title="Room code">${esc(room.code)}</div>
       <p class="room-share">${t('room.share')}</p>
@@ -477,27 +585,30 @@ function renderRoom(preserveInput = false) {
   } else if (room.phase === 'question') {
     const question = room.question;
     const answered = Boolean(me?.hasAnswered);
-    phaseContent = `<div class="question-card panel">
+    phaseContent = `<div class="question-card panel ${enter}">
       <div class="question-meta"><span class="sector-tag" style="--chip:${(CATEGORIES[question?.category] || {}).color || '#8ffff5'}">${esc((CATEGORIES[question?.category] || {}).icon || '◆')} ${esc(question?.category || '')}</span><span class="round-index">${String(room.round + 1).padStart(2, '0')} / ${room.totalRounds}</span></div>
-      <h2 class="question-prompt">${esc(question?.prompt || '')}</h2>
+      <h2 class="question-prompt glitch-text" data-text="${esc(question?.prompt || '')}">${esc(question?.prompt || '')}</h2>
+      ${ruleLine(question)}
       ${answered
         ? `<div class="locked-answer"><span>✓ ${t('room.answered')}</span><strong>${esc(room.answers[state.playerId]?.text || '')}</strong><small>${t('room.waitingFor')}</small></div>`
         : `<form id="room-answer-form" class="answer-form" autocomplete="off"><input id="answer-input" name="answer" maxlength="60" value="${esc(previousAnswer)}" placeholder="${t('room.placeholder')}" /><button class="btn btn-primary" type="submit">${t('room.send')} <span>↗</span></button></form>`}
     </div>`;
   } else if (room.phase === 'reveal') {
     const answers = Object.entries(room.answers || {});
-    phaseContent = `<div class="reveal-list panel">
+    const mine = room.answers?.[state.playerId];
+    phaseContent = `<div class="reveal-list panel ${enter}">
       <span class="kicker">${t('room.reveal')}</span>
       <h2 class="question-prompt small">${esc(room.question?.prompt || '')}</h2>
-      ${answers.length ? answers.map(([id, answer]) => `<div class="reveal-row ${id === state.playerId ? 'me' : ''}">
+      ${answers.length ? answers.map(([id, answer]) => `<div class="reveal-row ${id === state.playerId ? 'me' : ''} ${answer.wrong ? 'wrong-row' : ''}">
         <b>${esc(room.players.find((p) => p.id === id)?.name || '???')}</b>
         <span>${esc(answer.text || t('room.noAnswer'))}${answer.corrected ? ` <small>→ ${esc(answer.corrected)}</small>` : ''}</span>
-        <strong style="color:${answer.label?.color || '#fff'}">+${answer.points ?? 0}<small>${esc(answer.label?.label || '')}</small></strong>
+        <strong style="color:${answer.label?.color || (answer.wrong ? WRONG_LABEL.color : '#fff')}">${answer.wrong ? '' : '+'}${answer.points ?? 0}<small>${esc(answer.label?.label || '')}</small></strong>
       </div>`).join('') : '<p class="feed-empty">GEEN ANTWOORDEN</p>'}
+      ${mine ? scoreLift(mine.points ?? 0, 100, true) : ''}
       ${isHost ? `<button class="btn btn-primary" data-act="room-next">${t('room.next')} <span>↗</span></button>` : `<span class="waiting">${t('room.waitingFor')}…</span>`}
     </div>`;
   } else {
-    phaseContent = `<div class="debrief panel">
+    phaseContent = `<div class="debrief panel ${enter}">
       <span class="kicker">${t('room.results')}</span>
       <h2 class="debrief-title">${esc(room.leaderboard[0]?.name || '')} // ${room.leaderboard[0]?.score || 0}</h2>
       <div class="standings">${standings}</div>
@@ -508,7 +619,7 @@ function renderRoom(preserveInput = false) {
   const hud = room.phase === 'lobby' ? '' : `<div class="game-hud">
     <div class="hud-block"><span>${t('room.round')}</span><strong>${String(room.round + 1).padStart(2, '0')}<small>/${room.totalRounds}</small></strong></div>
     <div class="hud-block hud-timer"><span>${t('room.time')}</span>${clockBar(room.clock.roundEndsAt, room.settings.seconds)}</div>
-    <div class="hud-block"><span>${t('solo.score')}</span><strong class="score-readout">${me?.score ?? 0}</strong></div>
+    <div class="hud-block"><span>${t('solo.score')}</span><strong class="score-readout count-up" data-target="${me?.score ?? 0}">0</strong></div>
     <div class="hud-block"><span>${t('room.players')}</span><strong>${room.players.length}<small>/8</small></strong></div>
   </div>`;
 
@@ -527,6 +638,7 @@ function renderRoom(preserveInput = false) {
     </div>
   </section>`, '/party', 'game-body');
   bindCommon();
+  animateCounts();
   if (room.phase === 'question' && !me?.hasAnswered) {
     document.getElementById('room-answer-form').addEventListener('submit', submitRoomAnswer);
     setTimeout(() => document.getElementById('answer-input')?.focus(), 60);
@@ -554,18 +666,24 @@ async function submitRoomAnswer(event) {
 
 async function roomActionSimple(action) {
   sfx.click();
-  try {
-    const response = await api.roomAction({ action, code: state.room.code, playerId: state.playerId });
-    state.room.data = response.room;
-    lastRoomSignature = roomSignature(response.room);
-    if (action === 'leave') {
-      state.room = null;
-      return go('/party');
+  const execute = async () => {
+    try {
+      const response = await api.roomAction({ action, code: state.room.code, playerId: state.playerId });
+      state.room.data = response.room;
+      lastRoomSignature = roomSignature(response.room);
+      if (action === 'leave') {
+        state.room = null;
+        return go('/party', true);
+      }
+      renderRoom();
+    } catch (error) {
+      toast(error.message, 'error');
     }
-    renderRoom();
-  } catch (error) {
-    toast(error.message, 'error');
-  }
+  };
+  // Bij 'next' wisselt de serverklok pas ná de transitie, zodat de animatie
+  // geen speeltijd kost en iedereen de nieuwe vraag tegelijk ziet verschijnen.
+  if (action === 'next') runTransition(execute);
+  else await execute();
 }
 
 /* ---------------- Archive ---------------- */
@@ -674,6 +792,154 @@ function renderHow() {
   bindCommon();
 }
 
+/* ---------------- Account ---------------- */
+
+function verificationBox() {
+  const pending = state.pendingVerification;
+  if (!pending) return '';
+  return `<div class="panel verify-box ${pending.devLink ? 'enter-pop' : ''}">
+    <span class="kicker">// ${t('account.verifyTitle')}</span>
+    <h2>${t('account.verifyTitle')}</h2>
+    <p>${t('account.verifyDesc')}</p>
+    <p class="verify-email">${esc(pending.email)}</p>
+    ${pending.devLink ? `<a class="btn btn-primary" href="${esc(pending.devLink)}">${t('account.verifyBtn')} <span>↗</span></a>` : `<p class="notice">${t('account.sent')}</p>`}
+    <small>${t('account.sent')}</small>
+  </div>`;
+}
+
+function renderAccount() {
+  const account = state.account;
+  if (account) {
+    const stats = account.stats || {};
+    app.innerHTML = shell(`<section class="narrow account-screen">
+      ${sectionTitle('ID / PROFILE', t('account.profile'), t('account.subtitle'))}
+      <div class="panel account-profile enter-pop">
+        <div class="profile-head">
+          <span class="profile-avatar">${esc(String(account.name || '?').slice(0, 1).toUpperCase())}</span>
+          <div><span class="kicker">${t('account.welcome')}</span><h2>${esc(account.name)}</h2><small>${esc(account.email)}</small></div>
+          <span class="verify-pill ${account.verified ? 'ok' : 'pending'}">${account.verified ? t('account.verified') : t('account.unverified')}</span>
+        </div>
+        <div class="profile-stats">
+          <div><span>${t('account.best')}</span><strong class="count-up" data-target="${stats.best || 0}">0</strong></div>
+          <div><span>${t('account.plays')}</span><strong class="count-up" data-target="${stats.plays || 0}">0</strong></div>
+          <div><span>${t('account.streak')}</span><strong>×${stats.streak || 0}</strong></div>
+        </div>
+        <div class="profile-foot"><span>${t('account.member')} // ${esc(String(account.createdAt || '').slice(0, 10))}</span>
+          <div class="profile-actions">
+            ${account.verified ? '' : `<button class="btn btn-flat" data-act="account-resend">${t('account.resend')}</button>`}
+            <button class="btn btn-outline" data-act="account-logout">${t('account.logout')}</button>
+          </div>
+        </div>
+      </div>
+    </section>`, '/account');
+    bindCommon();
+    animateCounts();
+    return;
+  }
+
+  app.innerHTML = shell(`<section class="narrow account-screen">
+    ${sectionTitle('ID / ACCESS', t('account.title'), t('account.subtitle'))}
+    <div class="account-grid">
+      <form id="login-form" class="panel form-panel enter-up">
+        <span class="panel-index">01 / ${t('account.login')}</span>
+        <h2>${t('account.welcome')}</h2>
+        <label class="field"><span>${t('account.email')}</span><input name="email" type="email" autocomplete="email" required placeholder="pilot@grid.net" /></label>
+        <label class="field"><span>${t('account.password')}</span><input name="password" type="password" autocomplete="current-password" required minlength="8" placeholder="••••••••" /></label>
+        <button class="btn btn-outline" type="submit">${t('account.loginBtn')} <span>↗</span></button>
+        <p class="notice">${t('account.noAccount')} <a href="#/account/register">${t('account.register')}</a></p>
+      </form>
+      <form id="register-form" class="panel form-panel enter-up">
+        <span class="panel-index">02 / ${t('account.register')}</span>
+        <h2>${t('account.register')}</h2>
+        <label class="field"><span>${t('account.name')}</span><input name="name" maxlength="18" required value="${esc(state.name)}" placeholder="NOVA_77" /></label>
+        <label class="field"><span>${t('account.email')}</span><input name="email" type="email" autocomplete="email" required placeholder="pilot@grid.net" /></label>
+        <label class="field"><span>${t('account.password')}</span><input name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="minimaal 8 tekens" /></label>
+        <button class="btn btn-primary" type="submit">${t('account.registerBtn')} <span>↗</span></button>
+        <p class="notice">${t('account.haveAccount')} <a href="#/account/login">${t('account.login')}</a></p>
+      </form>
+    </div>
+    ${verificationBox()}
+  </section>`, '/account');
+  bindCommon();
+
+  const loginForm = document.getElementById('login-form');
+  loginForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const data = new FormData(loginForm);
+    sfx.click();
+    try {
+      const response = await api.account.login(data.get('email'), data.get('password'));
+      setSession(response.session);
+      state.account = response.account;
+      state.name = response.account.name || state.name;
+      saveState();
+      toast(`${t('account.welcome')} // ${response.account.name}`, 'success');
+      go('/account', true);
+    } catch (error) {
+      toast(error.message, 'error');
+    }
+  });
+
+  const registerForm = document.getElementById('register-form');
+  registerForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const data = new FormData(registerForm);
+    sfx.click();
+    try {
+      const response = await api.account.register({ email: data.get('email'), name: data.get('name'), password: data.get('password') });
+      state.pendingVerification = { email: String(data.get('email')), devToken: response.devToken || '', devLink: response.devLink || '' };
+      state.name = String(data.get('name') || state.name);
+      saveState();
+      toast(response.message || t('account.sent'), 'success');
+      renderAccount();
+    } catch (error) {
+      toast(error.message, 'error');
+    }
+  });
+}
+
+async function renderVerify(token) {
+  app.innerHTML = shell(`<section class="narrow"><div class="panel empty-state enter-up">VERIFYING IDENTITY // ${esc(String(token).slice(0, 8))}…</div></section>`, '/account');
+  try {
+    const response = await api.account.verify(token);
+    setSession(response.session);
+    state.account = response.account;
+    state.pendingVerification = null;
+    state.name = response.account.name || state.name;
+    saveState();
+    toast(t('account.verified'), 'success');
+    sfx.win();
+    go('/account', true);
+  } catch (error) {
+    app.innerHTML = shell(`<section class="narrow">
+      ${sectionTitle('ID / VERIFY', t('account.verifyTitle'))}
+      <div class="panel empty-state"><p>${esc(error.message)}</p><a class="btn btn-flat" href="#/account">${t('common.back')}</a></div>
+    </section>`, '/account');
+    bindCommon();
+  }
+}
+
+async function accountLogout() {
+  try { await api.account.logout(); } catch { /* lokaal altijd uitloggen */ }
+  setSession('');
+  state.account = null;
+  saveState();
+  toast(t('account.localOnly'), 'info');
+  go('/account', true);
+}
+
+async function accountResend() {
+  if (!state.account?.email) return;
+  try {
+    const response = await api.account.resend(state.account.email);
+    state.pendingVerification = { email: state.account.email, devToken: response.devToken || '', devLink: response.devLink || '' };
+    toast(response.message || t('account.sent'), 'success');
+    renderAccount();
+  } catch (error) {
+    toast(error.message, 'error');
+  }
+}
+
 /* ---------------- Clock + common bindings ---------------- */
 
 function startClock(isExpired, onExpire, endAt, totalSeconds, offset = 0) {
@@ -722,10 +988,13 @@ function bindCommon() {
       } else if (action === 'solo-next') {
         if (state.solo.index + 1 >= state.solo.questions.length) finishSolo();
         else {
-          state.solo.index += 1;
-          state.solo.phase = 'question';
-          state.solo.endsAt = Date.now() + state.solo.settings.seconds * 1000;
-          renderSoloGame();
+          // De klok start pas als de transitie klaar is: animaties kosten geen speeltijd.
+          runTransition(() => {
+            state.solo.index += 1;
+            state.solo.phase = 'question';
+            state.solo.endsAt = Date.now() + state.solo.settings.seconds * 1000;
+            renderSoloGame();
+          });
         }
       } else if (action === 'share-result') {
         const text = `ZERON // ${state.solo.score} pts // ${state.solo.questions.length} signals // rarity > everything`;
@@ -736,6 +1005,12 @@ function bindCommon() {
           element.textContent = t('room.copied');
           toast('Link gekopieerd.', 'success');
         }).catch(() => toast(link));
+      } else if (action === 'account') {
+        go('/account');
+      } else if (action === 'account-logout') {
+        accountLogout();
+      } else if (action === 'account-resend') {
+        accountResend();
       } else if (action.startsWith('room-')) {
         roomActionSimple(action.replace('room-', ''));
       }
@@ -764,6 +1039,7 @@ function renderRoute() {
     if (!code) return renderParty();
     if (!state.room || state.room.code !== code) state.room = { code, data: null };
     lastRoomSignature = '';
+    lastRoomView = '';
     (async () => {
       try {
         const response = await api.getRoom(code, state.playerId);
@@ -781,6 +1057,8 @@ function renderRoute() {
   if (route === '/archive') return renderArchive();
   if (route === '/submit') return renderSubmit();
   if (route === '/how') return renderHow();
+  if (route === '/account' || route === '/account/login' || route === '/account/register') return renderAccount();
+  if (path[0] === 'verify' && path[1]) return renderVerify(path[1]);
   return renderHome();
 }
 
@@ -795,6 +1073,19 @@ async function boot() {
   } catch {
     toast(t('common.offline'), 'error');
   }
+  if (getSession()) {
+    try {
+      const response = await api.account.me();
+      state.account = response.account;
+      state.name = response.account.name || state.name;
+      saveState();
+    } catch {
+      setSession('');
+      state.account = null;
+      saveState();
+    }
+  }
+  scheduleGlitch();
   renderRoute();
 }
 

@@ -37,6 +37,21 @@ test('a full room round keeps answers hidden until reveal', async () => {
   assert.equal(next.room.phase, 'question');
 });
 
+test('a wrong room answer scores zero and keeps the red wrong label', async () => {
+  const created = await act({
+    action: 'create', playerId: 'solo-host', name: 'SOLO', lang: 'nl', categories: [], rounds: 3, seconds: 15, seed: 'wrong-seed',
+  });
+  const code = created.room.code;
+  await act({ action: 'start', code, playerId: 'solo-host' });
+  await act({ action: 'answer', code, playerId: 'solo-host', answer: 'flubberkabouter9000' });
+  await act({ action: 'reveal', code, playerId: 'solo-host' });
+  const revealed = await getRoom(code, 'solo-host');
+  const answer = Object.values(revealed.room.answers)[0];
+  assert.equal(answer.points, 0);
+  assert.equal(answer.wrong, true);
+  assert.equal(answer.label.key, 'wrong');
+});
+
 test('only the host can start and unknown rooms fail cleanly', async () => {
   const created = await act({ action: 'create', playerId: 'host', name: 'HOST', lang: 'en', rounds: 3, seconds: 10, categories: [] });
   const result = await act({ action: 'start', code: created.room.code, playerId: 'intruder' });

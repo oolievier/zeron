@@ -57,6 +57,7 @@ function publicQuestion(question) {
     category: question.category,
     lang: question.lang,
     tags: question.tags || [],
+    rule: question.rule || null,
   };
 }
 
@@ -90,7 +91,8 @@ function finalizeRound(room, now) {
       normalized: result.normalized,
       corrected: result.corrected,
       points,
-      label: result.ok ? result.label : { key: 'invalid', label: 'REJECTED', color: '#ff425d' },
+      label: result.label,
+      wrong: Boolean(result.wrong),
       notes: result.notes || [],
       reason: result.reason || null,
     };

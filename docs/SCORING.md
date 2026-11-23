@@ -13,24 +13,45 @@ De engine staat in [`src/lib/scoring.js`](../src/lib/scoring.js) en wordt zowel 
 5. alles behalve `a-z0-9`, spatie en `'` verwijderen;
 6. whitespace samenvoegen.
 
-## 2. Typo-correctie
+## 2. Expliciete vraagregel
 
-`correctTypo()` probeert alleen woorden van **4+ tekens** te corrigeren naar een antwoord uit de `common`/`rare` lijst van dezelfde vraag. Correctie vindt alleen plaats als er **exact één** kandidaat op bewerkingafstand 1 is (insertie, deletie, substitutie). Meerdere kandidaten of geen kandidaat = geen gok. De UI toont een `AUTOCORRECT → …` notitie als het antwoord is aangepast.
+Iedere vraag heeft een `rule`-object (`answerRule(question)` geeft altijd een regel terug):
 
-## 3. Validatie
+```js
+{ kind: 'listed', hint: 'Antwoord moet in de antwoordlijst van dit signaal staan; één typfout wordt gecorrigeerd.', categoryHint: '…' }
+```
 
-Afgewezen worden: lege antwoorden, >60 tekens, geen alfanumeriek teken, `aaaaaaaaaa`-achtige herhalingen, links/domeinen. Vragen kunnen extra regels hebben (`startsWith`, `minWords`); die worden ook server-side gecontroleerd voor kamerantwoorden.
+De hint wordt in de UI bij de vraag getoond. Een vraag mag extra velden hebben (`startsWith`, `minWords`, `contains`); die worden ná de typo-correctie op het eindantwoord gecontroleerd. Faalt zo'n regel, dan is het antwoord fout — ook al staat het woord in de lijst.
 
-Een onbekend maar geldig antwoord is **geen fout**: het krijgt een pseudo-rarity score. Dat is bewust anders dan een strikte quiz en vergelijkbaar met de inspiratiebronnen.
+## 3. Typo-correctie
 
-## 4. Puntberekening
+`correctTypo()` probeert alleen woorden van **4+ tekens** te corrigeren naar een woord uit de `common`/`rare` lijst van dezelfde vraag (ook losse woorden van meerwoordige antwoorden). Correctie vindt alleen plaats als er **exact één** kandidaat op bewerkingafstand 1 is (insertie, deletie, substitutie). Meerdere kandidaten of geen kandidaat = geen gok.
+
+`een gerucnt` → `een gerucht` telt dus als rare-antwoord. De UI toont `AUTOCORRECT → …` alleen als de correctie het antwoord daadwerkelijk naar een lijstantwoord heeft gebracht.
+
+## 4. Validatie en fout antwoorden
+
+Afgewezen worden: lege antwoorden, >60 tekens, geen alfanumeriek teken, `aaaaaaaaaa`-achtige herhalingen, links/domeinen.
+
+**Een antwoord dat niet in de `common`/`rare` lijst van de vraag staat, is fout.** Er is geen pseudo-rarity meer. Elk fout antwoord geeft:
+
+```js
+{
+  ok: false, wrong: true, points: 0,
+  reason: 'NOT_IN_LIST' | 'RULE_FAILED' | <validatiefout>,
+  label: { key: 'wrong', label: 'Fout', color: '#ff425d' },
+  notes: ['ANTWOORD NIET IN LIJST', …]
+}
+```
+
+In solo wordt het fout antwoord genoteerd met **0 punten** en een rood `FANT`/`WRONG`-scherm; de speler ziet de regel en de reden. In kamers gebruikt de server dezelfde uitkomst: de reveal toont `Fout`, 0 punten en geen bonus. Timeouts en lege antwoorden krijgen hetzelfde rode label.
+
+## 5. Puntberekening
 
 ```
 base =
   common-lijst match  → 22
   rare-lijst match    → 82
-  anders              → 34 + floor(hash32(question.id + "|" + antwoord) % 100 * 0.38)
-                          (= 34..71, deterministisch)
 
 peer bonus/malus:
   geen dubbelen in kamer (en er zijn peers) → +18
@@ -45,9 +66,9 @@ bonussen:
 totaal = clamp(5, 100, base + peer + bonussen)
 ```
 
-In solo-modus is `peerAnswers` leeg: purity/unique bonus vervalt en de pseudo-rarity bepaalt de basis. In party-modus berekent de **server** de score bij de reveal, met alle antwoorden van die ronde. De client krijgt pas punten te zien na de reveal.
+In solo-modus is `peerAnswers` leeg: de unique-bonus vervalt. In party-modus berekent de **server** de score bij de reveal, met alle antwoorden van die ronde. De client krijgt pas punten te zien na de reveal.
 
-## 5. Labels
+## 6. Labels
 
 | Punten | Label | Kleur |
 |---|---|---|
@@ -55,22 +76,25 @@ In solo-modus is `peerAnswers` leeg: purity/unique bonus vervalt en de pseudo-ra
 | 35–54 | UNCOMMON | cyaan |
 | 55–74 | RARE | magenta |
 | 75–100 | GHOST RARE | lime |
-| afgewezen/timeout | REJECTED / MISSED | rood |
+| fout/timeout | Fout / MISSED | rood (`#ff425d`) |
 
-## 6. Streaks en dagelijkse run
+Naast het label toont de UI een neon 'score-buis' die van 0 naar het behaalde aantal punten groeit (`score-lift`). Dat is puur visueel; de score zelf komt altijd van de engine.
+
+## 7. Streaks en dagelijkse run
 
 - Solo streak: +1 bij een antwoord van 75+ punten, anders reset naar 0.
-- Run-streak in `localStorage`: +1 bij een run van 400+ punten.
+- Run-streak: +1 bij een run van 400+ punten; wordt ook naar een aangemeld account geschreven (`saveRun`).
 - Daily seed = `YYYY-MM-DD` (UTC). `seededShuffle` (xorshift-achtig, afgeleid van FNV-1a hash) geeft iedereen dezelfde 7 vragen.
-- Question bag: de kamer selecteert vragen uit de volledige pool; herhaling binnen één run is uitgesloten. Communityvragen worden meegenomen.
+- Question bag: de kamer selecteert vragen uit de volledige pool; herhaling binnen één run is uitgesloten. Communityvragen worden meegenomen; die hebben hun eigen `common`/`rare` lijsten en worden dus hetzelfde gescoord.
 
-## 7. Voorbeelden
+## 8. Voorbeelden
 
-| Antwoord op “Noem iets dat je kunt opblazen.” | Base | Extra | Totaal (indicatie) |
-|---|---|---|---|
-| `ballon` (common) | 22 | +5 (lengte) | 27 → COMMON |
-| `een gerucht` (rare) | 82 | +4 +5 | 91 → GHOST RARE |
-| `een rare spinazie` (onbekend) | 34–71 | +4 +5 +4 | 47–84 |
-| `een gerucht`, maar 2 spelers | 82 | +4 +5 −10 | 81 → GHOST RARE |
+| Antwoord op “Noem iets dat je kunt opblazen.” | Resultaat |
+|---|---|
+| `ballon` (common) | 27 → COMMON |
+| `een gerucnt` (typo op rare) | gecorrigeerd naar `een gerucht` → 91 → GHOST RARE |
+| `een rare spinazie` (niet in lijst) | **Fout, 0 punten** |
+| `een gerucht`, maar 2 spelers | 81 → GHOST RARE (echo −10) |
+| `het is een ballon` bij `startsWith: 'een'` | **Fout, 0 punten** (regel failt) |
 
-De exacte waarde van een onbekend antwoord hangt af van de hash van antwoord + vraag-id; dezelfde combinatie geeft altijd hetzelfde resultaat.
+De engine is deterministic: dezelfde invoer geeft altijd dezelfde score, in de browser én op de server.

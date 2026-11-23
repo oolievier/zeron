@@ -4,6 +4,21 @@
 const DIACRITICS = /[\u0300-\u036f]/g;
 const ALLOWED = /[^a-z0-9\s'-]/g;
 
+// Alleen antwoorden uit de lijst tellen mee; één typfout mag gecorrigeerd worden.
+const DEFAULT_RULE_HINT = 'Antwoord moet in de antwoordlijst van dit signaal staan; één typfout wordt gecorrigeerd.';
+
+// Sectorhint wordt toegevoegd als een vraag geen eigen regel meebrengt.
+const CATEGORY_HINTS = {
+  SIGNAL: 'Signaal: denk aan geluid, zenden of ontvangen.',
+  GRID: 'Het Grid: denk aan netwerk, verbinding of apparaten.',
+  NEON: 'Neon: denk aan licht, kleur of nachtelijk straatbeeld.',
+  BIO: 'Bio: denk aan lichaam, plant of dier.',
+  ARCHIVE: 'Archief: denk aan document, geheugen of oude data.',
+  VOID: 'De Void: denk aan ruimte, stilte of het onbekende.',
+  STREET: 'Straat: denk aan straat, verkeer of stadsleven.',
+  GLITCH: 'Glitch: denk aan fout, storing of vreemde code.',
+};
+
 export function normalize(value) {
   return String(value ?? '')
     .trim()
@@ -48,7 +63,9 @@ function editDistanceOne(a, b) {
 // Fix one-character slips only when the intended answer is unambiguous.
 export function correctTypo(value, dictionary = []) {
   const words = normalize(value).split(' ').filter(Boolean);
-  const known = [...new Set(dictionary.map(normalize).filter(Boolean))];
+  // Ook losse woorden uit meerwoordige antwoorden (bijv. "gerucht" uit
+  // "een gerucht") moeten als correctiebron dienen.
+  const known = [...new Set(dictionary.flatMap((item) => normalize(item).split(' ')).filter(Boolean))];
   const corrected = words.map((word) => {
     if (word.length < 4 || known.includes(word)) return word;
     const candidates = known.filter((item) => editDistanceOne(word, item));
@@ -79,6 +96,35 @@ export function validateAnswer(raw, question = {}) {
   return { ok: true, reason: null, normalized };
 }
 
+// Altijd een regel-object opleveren: bestaande velden blijven behouden,
+// ontbrekende velden krijgen de standaard lijstregel en een sectorhint.
+export function answerRule(question = {}) {
+  const categoryHint = CATEGORY_HINTS[question?.category];
+  const fallback = {
+    kind: 'listed',
+    hint: DEFAULT_RULE_HINT,
+    ...(categoryHint ? { categoryHint } : {}),
+  };
+  if (question?.rule && typeof question.rule === 'object') {
+    return { ...fallback, ...question.rule, hint: question.rule.hint || fallback.hint };
+  }
+  return fallback;
+}
+
+// Aanvullende regelvelden worden ná de typo-correctie op het eindantwoord gecontroleerd.
+function ruleFails(rule, text) {
+  if (!rule || typeof rule !== 'object') return false;
+  if (rule.startsWith && !text.startsWith(normalize(rule.startsWith))) return true;
+  if (rule.contains && !text.includes(normalize(rule.contains))) return true;
+  if (rule.minWords && text.split(' ').filter(Boolean).length < rule.minWords) return true;
+  return false;
+}
+
+// Rood label voor alles wat niet als geldig lijstantwoord door de controle komt.
+export function wrongLabel() {
+  return { key: 'wrong', label: 'Fout', color: '#ff425d' };
+}
+
 function hash32(text) {
   let hash = 2166136261;
   for (let i = 0; i < text.length; i++) {
@@ -95,35 +141,59 @@ export function rarityLabel(points) {
   return { key: 'ghost', label: 'GHOST RARE', color: '#d4ff4f' };
 }
 
-// `peerAnswers` is the normalized answer list from the same room round.
-// In solo play it is empty; a stable pseudo-rarity is used instead.
-export function scoreAnswer({ raw, question = {}, peerAnswers = [], corrected = null }) {
+// Een fout antwoord krijgt géén bonussen, géén minimum en géén pseudo-rarity.
+function wrongResult({ reason, normalized = '', corrected = null, extraNotes = [] }) {
+  return {
+    ok: false,
+    wrong: true,
+    reason,
+    points: 0,
+    normalized,
+    corrected,
+    label: wrongLabel(),
+    notes: ['ANTWOORD NIET IN LIJST', ...extraNotes],
+    duplicateCount: 0,
+  };
+}
+
+// `peerAnswers` is de genormaliseerde antwoordlijst van dezelfde ronde.
+// Alleen exacte lijstantwoorden (na eventuele typo-correctie) krijgen punten.
+export function scoreAnswer({ raw, question = {}, peerAnswers = [], corrected = null } = {}) {
   const validation = validateAnswer(raw, question);
-  if (!validation.ok) return { ok: false, reason: validation.reason, points: 0, normalized: validation.normalized };
-
-  const dictionary = [...(question.common || []), ...(question.rare || [])];
-  const normalized = corrected ?? correctTypo(validation.normalized, dictionary);
-  const commons = (question.common || []).map(normalize);
-  const rares = (question.rare || []).map(normalize);
-  const peers = peerAnswers.filter(Boolean);
-  const duplicates = peers.filter((item) => item === normalized).length;
-
-  let points;
-  let source;
-  if (commons.includes(normalized)) {
-    points = 22;
-    source = 'COMMON LIST';
-  } else if (rares.includes(normalized)) {
-    points = 82;
-    source = 'RARE LIST';
-  } else {
-    // Stable pseudo-rarity: same answer + same question always scores the same.
-    const bucket = hash32(`${question.id || question.prompt}|${normalized}`) % 100;
-    points = 34 + Math.floor(bucket * 0.38); // 34..71
-    source = 'SIGNAL MODEL';
+  if (!validation.ok) {
+    return wrongResult({
+      reason: validation.reason,
+      normalized: validation.normalized,
+      extraNotes: [`REASON: ${validation.reason}`],
+    });
   }
 
-  const notes = [source];
+  const dictionary = [...(question.common || []), ...(question.rare || [])];
+  const commons = (question.common || []).map(normalize);
+  const rares = (question.rare || []).map(normalize);
+
+  // `corrected` blijft als parameter beschikbaar, maar wordt net als de
+  // automatische correctie altijd tegen de antwoordlijst gecontroleerd.
+  const autoCorrected = correctTypo(validation.normalized, dictionary);
+  const candidate = corrected ? normalize(corrected) : autoCorrected;
+  const isRare = rares.includes(candidate);
+  if (!commons.includes(candidate) && !isRare) {
+    return wrongResult({ reason: 'NOT_IN_LIST', normalized: candidate });
+  }
+
+  if (ruleFails(answerRule(question), candidate)) {
+    return wrongResult({
+      reason: 'RULE_FAILED',
+      normalized: candidate,
+      extraNotes: ['REGEL NIET VOLDAAN'],
+    });
+  }
+
+  const peers = peerAnswers.map(normalize).filter(Boolean);
+  const duplicates = peers.filter((item) => item === candidate).length;
+
+  let points = isRare ? 82 : 22;
+  const notes = [isRare ? 'RARE LIST' : 'COMMON LIST'];
   if (duplicates === 0 && peers.length) {
     points += 18;
     notes.push('SOLO IN ROOM +18');
@@ -132,20 +202,20 @@ export function scoreAnswer({ raw, question = {}, peerAnswers = [], corrected = 
     notes.push(`ECHO ×${duplicates + 1} −${10 * duplicates}`);
   }
 
-  const words = normalized.split(' ').length;
+  const words = candidate.split(' ').length;
   if (words >= 2) {
     points += 4;
     notes.push('MULTI-WORD +4');
   }
-  if (normalized.length >= 8) {
+  if (candidate.length >= 8) {
     points += 5;
     notes.push('SPECIFIC +5');
   }
-  if (normalized.length >= 12) {
+  if (candidate.length >= 12) {
     points += 4;
     notes.push('DEEP CUT +4');
   }
-  if (rares.some((item) => editDistanceOne(normalized, item))) {
+  if (rares.some((item) => editDistanceOne(candidate, item))) {
     points += 8;
     notes.push('NEAR MISS +8');
   }
@@ -153,9 +223,12 @@ export function scoreAnswer({ raw, question = {}, peerAnswers = [], corrected = 
   points = Math.max(5, Math.min(100, Math.round(points)));
   return {
     ok: true,
+    wrong: false,
+    reason: null,
     points,
-    normalized,
-    corrected: normalized !== validation.normalized ? normalized : null,
+    normalized: candidate,
+    // Alleen melden als de correctie ook echt naar een lijstantwoord ging.
+    corrected: candidate !== validation.normalized ? candidate : null,
     label: rarityLabel(points),
     notes,
     duplicateCount: duplicates,
