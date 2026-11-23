@@ -4,12 +4,15 @@ import { createHash, randomBytes, scryptSync } from 'node:crypto';
 import handler from '../api/account.js';
 import { readJSON } from '../api/lib/store.js';
 
-// Zonder Resend-key geeft de API een devToken mee; dat maakt de flow testbaar.
-const originalResendKey = process.env.RESEND_API_KEY;
-delete process.env.RESEND_API_KEY;
+// Zonder mailprovider geeft de API een devToken mee; dat maakt de flow testbaar.
+const mailEnv = ['RESEND_API_KEY', 'ZERON_SMTP_HOST', 'ZERON_SMTP_PORT', 'ZERON_SMTP_USER', 'ZERON_SMTP_PASS', 'ZERON_SMTP_FROM', 'ZERON_SMTP_SECURE'];
+const originalMailEnv = Object.fromEntries(mailEnv.map((key) => [key, process.env[key]]));
+for (const key of mailEnv) delete process.env[key];
 after(() => {
-  if (originalResendKey === undefined) delete process.env.RESEND_API_KEY;
-  else process.env.RESEND_API_KEY = originalResendKey;
+  for (const key of mailEnv) {
+    if (originalMailEnv[key] === undefined) delete process.env[key];
+    else process.env[key] = originalMailEnv[key];
+  }
 });
 
 function uniqueEmail(label = 'speler') {

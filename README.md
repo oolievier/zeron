@@ -46,7 +46,7 @@ api/
   room.js              kamers: create/join/start/answer/reveal/next/rematch
   account.js           register/verify/login/me/saveRun/logout
   lib/accounts.js      scrypt-hashes, sessies, verificatietokens
-  lib/mail.js          Resend-mail met dev-link fallback
+  lib/mail.js          SMTP- of Resend-mail met dev-link fallback
   questions.js         communityvragen ophalen en indienen
   health.js            statusendpoint
   lib/rooms.js         kamer-state-machine en openbare projectie

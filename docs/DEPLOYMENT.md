@@ -9,7 +9,7 @@ De productie-infrastructuur staat al klaar:
 | Vercel-team | `oliviermastenbroek-gmailcom's projects` |
 | Blob-store | `zeron-data` (private, id `store_A4YXwkOgkpnbln4U`) |
 | Env-var | `BLOB_READ_WRITE_TOKEN` (automatisch door Vercel aan de store gekoppeld) |
-| Optionele env-vars | `RESEND_API_KEY`, `ZERON_EMAIL_FROM`, `ZERON_BASE_URL` (zie hieronder) |
+| Optionele env-vars | SMTP (`ZERON_SMTP_*`), `RESEND_API_KEY`, `ZERON_EMAIL_FROM`, `ZERON_BASE_URL` (zie hieronder) |
 | Build | Vite, `npm run build` → `dist/` |
 | Node | 22.x lokaal, Vercel runtime 26.x |
 | Live URL | **https://zeron-one.vercel.app** |
@@ -24,15 +24,23 @@ De productie-infrastructuur staat al klaar:
 
 ### E-mailverificatie
 
-Accounts werken zonder extra configuratie: als `RESEND_API_KEY` ontbreekt, toont de UI na registratie een directe **VERIFICEER NU**-knop (`#/verify/<token>`). Voor echte e-mail:
+Accounts werken zonder extra configuratie: als er geen mailprovider is ingesteld, toont de UI na registratie een directe **VERIFICEER NU**-knop (`#/verify/<token>`). Voor echte mail **zonder eigen domein** gebruik je SMTP. Zet deze variabelen in het Vercel-project (Environment Variables → Production/Preview):
 
-1. Maak een [Resend](https://resend.com)-key aan en voeg hem als `RESEND_API_KEY` toe aan het Vercel-project (Environment Variables → Production/Preview).
-2. Zet `ZERON_EMAIL_FROM` op een geverifieerd afzenderadres (bijv. `ZERON <verification@joudomein.nl>`).
-3. Zet `ZERON_BASE_URL` op `https://zeron-one.vercel.app` (of je custom domein), zodat de link in de mail naar productie wijst.
+| Variabele | Voorbeeld | Doel |
+|---|---|---|
+| `ZERON_SMTP_HOST` | `smtp.gmail.com` | SMTP-server |
+| `ZERON_SMTP_PORT` | `587` | Poort, standaard `587`; `465` is implicit TLS |
+| `ZERON_SMTP_USER` | `jij@gmail.com` | Inlognaam van de SMTP-server |
+| `ZERON_SMTP_PASS` | `abcd efgh ijkl mnop` | App-wachtwoord; nooit in de repo zetten |
+| `ZERON_SMTP_FROM` | `ZERON <jij@gmail.com>` | Afzender; standaard gelijk aan `ZERON_SMTP_USER` |
+| `ZERON_SMTP_SECURE` | `false` | `true` voor 465; leeg = automatisch op 465 |
+| `ZERON_BASE_URL` | `https://zeron-one.vercel.app` | Basis-URL van de verificatielink |
 
-Een key maak je aan in het Resend-dashboard via **API Keys → Create API Key** (scope: sending). Het afzenderadres moet een geverifieerd domein zijn: **Domains → Add Domain**, voeg de getoonde DNS-records toe bij je domeinprovider en wacht tot de status *Verified* is. `onboarding@resend.dev` is alleen bruikbaar voor testadressen; voor echte spelers heb je een eigen geverifieerd domein nodig.
+Voor Gmail: zet 2-stapsverificatie aan, maak bij **Google Account → Beveiliging → App-wachtwoorden** een 16-teken wachtwoord aan en gebruik dat als `ZERON_SMTP_PASS`. Andere SMTP-providers werken hetzelfde. Gmail heeft dagelijkse verzendlimieten; voor grotere groepen is een provider met een hoger quotum verstandiger.
 
-De key wordt nooit gelogd of naar de client gestuurd. Tokens (24 u) en sessies (30 d) worden alleen als hash opgeslagen. Zonder key blijft de directe verificatieknop werken.
+[Resend](https://resend.com) blijft ook beschikbaar: zet dan `RESEND_API_KEY` en eventueel `ZERON_EMAIL_FROM`. Resend vereist een eigen geverifieerd domein (`Domains → Add Domain`, DNS-records toevoegen, wachten op *Verified*); `onboarding@resend.dev` is alleen voor testadressen. **Volledige SMTP-configuratie heeft prioriteit** boven Resend; daarna volgt de directe knop.
+
+Geen van deze geheimen wordt gelogd of naar de client gestuurd. Tokens (24 u) en sessies (30 d) worden alleen als hash opgeslagen.
 
 ### Automatisch deployen bij pushes
 

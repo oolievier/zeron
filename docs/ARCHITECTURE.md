@@ -83,7 +83,7 @@ Elke mutatie leest de kamer, past die aan en schrijft het volledige JSON-object 
 - **Verify:** token = `<key>.<random hex>`, 24 uur geldig; alleen de hash wordt opgeslagen. De link wijst naar `/#/verify/<token>` en logt de gebruiker na verificatie direct in.
 - **Login/sessie:** wachtwoordcontrole met `timingSafeEqual`; sessietoken (32 random bytes, base64url) alleen als hash in `sessions/<hash>.json`, 30 dagen geldig. De client stuurt `x-zeron-session` mee en bewaart de token in `localStorage`.
 - **saveRun:** verhoogt `plays`, houdt `best` bij, voegt max. 20 runs toe aan `history`, update streak en daily score. Wordt na een solo-run aangeroepen als de speler is ingelogd.
-- **Mail:** `api/lib/mail.js` gebruikt Resend als `RESEND_API_KEY` aanwezig is. Zonder key (of bij een falende request) wordt geen fout gegooid: de response bevat `devToken`/`devLink`, zodat verificatie ook lokaal en in preview direct werkt. Tokens en keys worden nooit gelogd.
+- **Mail:** `api/lib/mail.js` kiest SMTP bij complete `ZERON_SMTP_*`-variabelen, daarna Resend bij een `RESEND_API_KEY`, en anders de directe link. SMTP werkt zonder eigen domein (bijv. Gmail met app-wachtwoord); Resend vereist een geverifieerd domein. Bij een falende provider wordt geen fout gegooid: de response bevat `devToken`/`devLink`, zodat verificatie ook lokaal en in preview direct werkt. Tokens, keys en wachtwoorden worden nooit gelogd.
 
 De UI heeft een account-scherm met profiel, verificatiestatus, opnieuw-versturen en uitloggen. Guest-play blijft mogelijk; accounts zijn optioneel.
 

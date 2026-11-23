@@ -800,10 +800,11 @@ function verificationBox() {
   return `<div class="panel verify-box ${pending.devLink ? 'enter-pop' : ''}">
     <span class="kicker">// ${t('account.verifyTitle')}</span>
     <h2>${t('account.verifyTitle')}</h2>
-    <p>${t('account.verifyDesc')}</p>
+    <p>${t(pending.devLink ? 'account.verifyDesc' : 'account.verifyDescMail')}</p>
     <p class="verify-email">${esc(pending.email)}</p>
-    ${pending.devLink ? `<a class="btn btn-primary" href="${esc(pending.devLink)}">${t('account.verifyBtn')} <span>↗</span></a>` : `<p class="notice">${t('account.sent')}</p>`}
-    <small>${t('account.sent')}</small>
+    ${pending.devLink
+      ? `<a class="btn btn-primary" href="${esc(pending.devLink)}">${t('account.verifyBtn')} <span>↗</span></a>`
+      : `<p class="notice">${t('account.sent')}</p>`}
   </div>`;
 }
 

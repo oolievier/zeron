@@ -28,7 +28,8 @@ function sessionTokenFrom(req, payload) {
   return null;
 }
 
-// In dev (zonder Resend-key) krijgt de UI een werkende verificatieknop mee.
+// Zonder mailprovider — of bij een falende provider — krijgt de UI een
+// werkende verificatieknop mee.
 function withDevVerification(result, verification) {
   if (!verification || verification.sent || !verification.devToken) return result;
   return { ...result, devToken: verification.devToken, devLink: verification.devLink };
