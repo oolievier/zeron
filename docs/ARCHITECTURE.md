@@ -73,7 +73,7 @@ De UI rendert volledig opnieuw als de `roomSignature` verandert (`phase:round:ve
 - **Productie:** `@vercel/blob` met `BLOB_READ_WRITE_TOKEN` (private store `zeron-data`), paden zonder random suffix, `cacheControlMaxAge: 0`.
 - **Lokaal zonder token:** een `Map` in het proces. Handig voor tests en solo, niet gedeeld tussen serverless instanties.
 
-Elke mutatie leest de kamer, past die aan en schrijft het volledige JSON-object terug. Dat is atomair per blob, maar **last-write-wins** bij gelijktijdige schrijven. Omdat Blob kort eventual-consistent is, wacht `writeJSONConfirmed()` tot de weggeschreven `version` weer leesbaar is vóór de API antwoordt; een `reveal` geeft late antwoorden daarnaast 1 s de tijd om zichtbaar te worden. Polls schrijven geen `lastSeen` meer weg, zodat ze geen versere antwoorden kunnen overschrijven. Bij zwaar gelijktijdig gebruik blijft een echte transactiestore (Redis/Postgres) de logische volgende stap.
+Elke mutatie leest de kamer, past die aan en schrijft het volledige JSON-object terug. Dat is atomair per blob, maar **last-write-wins** bij gelijktijdige schrijven. Omdat private Blob-reads via de edge-cache kort verouderd kunnen zijn, leest `readJSON()` met `useCache: false` en wacht `writeJSONConfirmed()` tot de weggeschreven `version` weer leesbaar is vóór de API antwoordt; een `reveal` geeft late antwoorden daarnaast 300 ms de tijd om zichtbaar te worden. Polls schrijven geen `lastSeen` meer weg, zodat ze geen versere antwoorden kunnen overschrijven. Bij zwaar gelijktijdig gebruik blijft een echte transactiestore (Redis/Postgres) de logische volgende stap.
 
 ## Accounts en e-mailverificatie
 
