@@ -23,6 +23,7 @@ npm install
 npm run dev      # http://localhost:5173
 npm test         # scoring- en kamer-engine tests
 npm run build    # productie-build in dist/
+npm run smoke    # live API-check tegen zeron-one.vercel.app
 ```
 
 Zonder `BLOB_READ_WRITE_TOKEN` gebruikt de API een process-lokale in-memory store: solo werkt altijd, kamers werken dan alleen binnen één proces. Op Vercel is de Blob-store gekoppeld en werken kamers tussen functie-instanties.

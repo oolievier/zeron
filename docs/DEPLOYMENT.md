@@ -12,7 +12,7 @@ De productie-infrastructuur staat al klaar:
 | Build | Vite, `npm run build` → `dist/` |
 | Node | 22.x lokaal, Vercel runtime 26.x |
 | Live URL | **https://zeron-one.vercel.app** |
-| Productie-deployment | `dpl_8CfwGPhRoqS2kvPscmMnyV3FwvnK` (commit `4513c1e`) |
+| Productie-deployment | nieuwste `READY` deployment van `main` (Vercel dashboard) |
 
 ## Huidige deploy-flow
 
@@ -30,6 +30,14 @@ Het Vercel-project bestond al vóór de GitHub-repo en is nog niet via de Git-in
 3. Produktie-branch: `main`. Build-instellingen staan al op Vite (`npm run build`, output `dist/`).
 
 Daarna bouwt elke push naar `main` automatisch. Tot die tijd: push naar GitHub en maak een deployment met `gitSource` op `main` (of gebruik `npx vercel --prod` na `vercel link`).
+
+## Verificatie
+
+```bash
+npm run smoke   # ZERON_URL=https://zeron-one.vercel.app node scripts/smoke-live.mjs
+```
+
+De smoke-test controleert `/api/health`, een volledige kamerronde (create → join → start → antwoorden → verborgen antwoorden → reveal → next) en het indienen van een communityvraag. Bij de livegang zijn hierbij drie SDK-aanpassingen gevonden en opgelost: `get()` vereist `access: 'private'`, geeft een stream in plaats van `.text()`, en `put()` vereist `allowOverwrite: true` bij vaste paden.
 
 ## Lokaal
 
