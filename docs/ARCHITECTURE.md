@@ -5,7 +5,8 @@
 ```
 Browser (Vite, vanilla JS, geen framework)
   ├─ hash-router → schermen (home, setup, solo, party, room, archive, submit, how, result)
-  ├─ scoring.js  → deterministische rarity-engine (ook gebruikt door de API)
+  ├─ scoring.js  → deterministische herkenning + gewogen antwoordscores (ook in de API)
+  ├─ data/recognition/ → 224 vraagspecifieke, gewogen antwoordregisters
   ├─ api.js      → fetch naar /api/* + sessietoken uit localStorage
   └─ styles.css  → handgemaakte neon-UI, glitch-bursts, score-lift
                          │
@@ -51,12 +52,12 @@ Een fout antwoord is geen definitief antwoord: de server bewaart de poging en ge
 `publicRoom()` is de enige uitvoer naar clients. Het:
 
 - verbergt alle antwoorden van andere spelers tijdens `question` (alleen de eigen pogingen komen terug, met `attemptsLeft` en de laatste foutreden);
-- verbergt `common`/`rare` antwoordlijsten, `questionIds`, `community` en de ruwe kamerstructuur;
+- verbergt het volledige gewogen antwoordregister (`answers`), `questionIds`, `community` en de ruwe kamerstructuur;
 - geeft `clock.now` mee, zodat de client klok-skew kan compenseren;
 - levert `leaderboard` en (alleen in `finished`) de volledige `history`;
-- stuurt de vraagregel (`rule`) mee, maar nooit de antwoordlijst.
+- stuurt de vraagregel (`rule`) mee, maar nooit het antwoordregister.
 
-Fout antwoorden worden bij de reveal door de server gescoord met `wrong: true`, `points: 0` en een rood label. De client toont dat als `Fout`; er worden geen pseudo-rarity-punten meer toegekend.
+Antwoorden worden bij de reveal door de server gescoord tegen het gewogen register van de vraag. Herkende synoniemen/varianten krijgen het gewicht van het bedoelde antwoord; onherkende antwoorden krijgen `wrong: true`, `points: 0` en een rood label. Er worden geen pseudo-rarity-punten meer toegekend.
 
 **Belangrijk:** alle POST-acties gebruiken dezelfde projectie. Vroege versies gaven de interne kamer terug; dat is gecorrigeerd en afgedekt met tests.
 
@@ -102,4 +103,4 @@ De UI heeft een account-scherm met profiel, verificatiestatus, opnieuw-versturen
 npm test
 ```
 
-Dekt: normalisatie, typo-correctie, validatie, fout antwoorden (0 punten), rarity-scoring, deterministische shuffle, kamerjoin/start/answer/reveal/next, zichtbaarheid van antwoorden, host-autorisatie én de volledige accountflow (register → verify → login → me → saveRun → logout).
+Dekt: normalisatie, variant- en typo-herkenning, validatie, fout antwoorden (0 punten), gewogen antwoordscores, deterministische shuffle, kamerjoin/start/answer/reveal/next, retries, zichtbaarheid van antwoorden, host-autorisatie én de volledige accountflow (register → verify → login → me → saveRun → logout).

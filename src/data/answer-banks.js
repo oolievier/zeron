@@ -3,7 +3,8 @@
 // `expansions/`. Voor communityvragen zonder zo'n lijst is er een
 // sector/tag-gebaseerde bank als terugval.
 
-import { normalize } from '../lib/scoring.js';
+import { answerWeight, normalize } from '../lib/scoring.js';
+import { RECOGNITION, RECOGNITION_TIERS } from './recognition/index.js';
 import { SIGNAL_GRID_EXPANSIONS } from './expansions/signal-grid.js';
 import { NEON_BIO_EXPANSIONS } from './expansions/neon-bio.js';
 import { ARCHIVE_VOID_EXPANSIONS } from './expansions/archive-void.js';
@@ -258,13 +259,42 @@ export function extraAnswers(question = {}) {
   return { common, rare };
 }
 
-// Nieuwe vraag met uitgebreide antwoordlijsten; de expliciete regel blijft
-// onaangetast en wordt door answerRule() van de basisvraag afgeleid.
+// Elke vraag krijgt één gewogen register. Expliciete herkenningsmodules gaan
+// vóór de generieke banken: een antwoord dat daar staat, behoudt zijn tier.
+export function weightedAnswers(question = {}, fallback = extraAnswers(question)) {
+  const candidates = [];
+  const explicit = RECOGNITION[question.id];
+  if (explicit) {
+    for (const tier of RECOGNITION_TIERS) {
+      for (const text of explicit[tier] || []) candidates.push({ text, tier });
+    }
+  }
+  for (const text of question.common || []) candidates.push({ text, tier: 'common' });
+  for (const text of fallback.common || []) candidates.push({ text, tier: 'common' });
+  for (const text of question.rare || []) candidates.push({ text, tier: 'rare' });
+  for (const text of fallback.rare || []) candidates.push({ text, tier: 'rare' });
+
+  const seen = new Set();
+  const answers = [];
+  for (const item of candidates) {
+    const key = normalize(item.text);
+    if (!key || key.length > 60 || seen.has(key)) continue;
+    seen.add(key);
+    answers.push({ text: item.text, tier: item.tier, points: answerWeight(item.text, item.tier) });
+  }
+  return answers;
+}
+
+// Nieuwe vraag met een groot, gewogen antwoordregister; de expliciete regel
+// blijft onaangetast en wordt door answerRule() van de basisvraag afgeleid.
 export function expandQuestion(question) {
-  const { common, rare } = extraAnswers(question);
+  const fallback = extraAnswers(question);
+  const explicit = RECOGNITION[question.id];
+  const answers = weightedAnswers(question, fallback);
   return {
     ...question,
-    common: [...(question.common || []), ...common],
-    rare: [...(question.rare || []), ...rare],
+    common: explicit ? [...(explicit.common || [])] : [...(question.common || []), ...fallback.common],
+    rare: explicit ? [...(explicit.rare || [])] : [...(question.rare || []), ...fallback.rare],
+    answers,
   };
 }

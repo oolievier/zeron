@@ -1618,9 +1618,9 @@ const RAW_QUESTIONS = [
   },
 ];
 
-// Elke vraag krijgt een brede antwoordlijst en een expliciete regel. Bestaande
-// vragen met een eigen rule behouden die velden; answerRule vult alleen
-// ontbrekende hints en de sectorhint in.
+// Elke vraag krijgt een groot gewogen antwoordregister en een expliciete regel.
+// Bestaande vragen met een eigen rule behouden die velden; answerRule vult
+// alleen ontbrekende hints en de sectorhint in.
 export const QUESTIONS = RAW_QUESTIONS.map((question) => {
   const expanded = expandQuestion(question);
   return { ...expanded, rule: answerRule(expanded) };

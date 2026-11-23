@@ -5,6 +5,9 @@ import {
   correctTypo,
   validateAnswer,
   answerRule,
+  answerWeight,
+  answerEntries,
+  answerVariants,
   scoreAnswer,
   seededShuffle,
   rarityLabel,
@@ -28,7 +31,7 @@ const typoQuestion = {
   rare: ['gerucht'],
 };
 
-// Vraag met aanvullende regelvelden; die moeten ná de lijstcontrole worden gecontroleerd.
+// Vraag met aanvullende regelvelden; die worden ná de herkenning gecontroleerd.
 const ruleQuestion = {
   id: 'test-rule',
   prompt: 'Noem een voertuig.',
@@ -36,10 +39,17 @@ const ruleQuestion = {
   rare: ['de oude auto'],
   rule: {
     kind: 'listed',
-    hint: 'Antwoord moet in de lijst staan en met "de" beginnen.',
+    hint: 'Antwoord moet met "de" beginnen en uit minimaal twee woorden bestaan.',
     startsWith: 'de',
     minWords: 2,
   },
+};
+
+const RANGES = {
+  common: [8, 24],
+  uncommon: [28, 49],
+  rare: [58, 82],
+  ghost: [84, 100],
 };
 
 test('normalize strips diacritics and punctuation', () => {
@@ -51,7 +61,6 @@ test('typo correction needs a unique unambiguous candidate', () => {
   assert.equal(correctTypo('ballon', question.common), 'ballon');
   assert.equal(correctTypo('balllor', ['ballon', 'ballonnetje']), 'balllor');
   assert.equal(correctTypo('gerucnt', ['gerucht']), 'gerucht');
-  // Woorden uit meerwoordige lijstantwoorden zijn ook geldige correctiebronnen.
   assert.equal(correctTypo('een gerucnt', question.rare), 'een gerucht');
 });
 
@@ -61,15 +70,37 @@ test('validation rejects junk but accepts short valid answers', () => {
   assert.equal(validateAnswer('ok', question).ok, true);
 });
 
-test('common/rare behouden hun scores en echo blijft −10', () => {
+test('elk antwoord heeft een eigen gewicht binnen zijn band', () => {
+  const seen = new Set();
+  for (const [tier, [min, max]] of Object.entries(RANGES)) {
+    const values = new Set();
+    for (let i = 0; i < 60; i += 1) {
+      const value = answerWeight(`antwoord-${tier}-${i}`, tier);
+      assert.ok(value >= min && value <= max, `${tier}: ${value}`);
+      values.add(value);
+      seen.add(`${tier}:${value}`);
+    }
+    assert.ok(values.size >= 10, `band ${tier} heeft te weinig verschillende waarden`);
+  }
+  assert.ok(seen.size >= 70, 'te weinig verschillende puntwaarden');
+  assert.ok(RANGES.common[1] < RANGES.uncommon[0]);
+  assert.ok(RANGES.uncommon[1] < RANGES.rare[0]);
+  assert.ok(RANGES.rare[1] < RANGES.ghost[0]);
+  assert.equal(rarityLabel(10).key, 'common');
+  assert.equal(rarityLabel(35).key, 'uncommon');
+  assert.equal(rarityLabel(70).key, 'rare');
+  assert.equal(rarityLabel(90).key, 'ghost');
+});
+
+test('common/rare krijgen hun band en echo blijft −10', () => {
   const common = scoreAnswer({ raw: 'ballon', question, peerAnswers: [] });
   const rare = scoreAnswer({ raw: 'een gerucht', question, peerAnswers: [] });
-  assert.equal(common.points, 22);
   assert.equal(common.wrong, false);
-  assert.ok(rare.points >= 82);
-  assert.ok(rare.notes.includes('RARE LIST'));
-  assert.equal(rare.label.key, 'ghost');
-  assert.equal(rarityLabel(10).key, 'common');
+  assert.equal(common.tier, 'common');
+  assert.ok(common.points >= 8 && common.points <= 24);
+  assert.equal(rare.wrong, false);
+  assert.equal(rare.tier, 'rare');
+  assert.ok(rare.points >= 58 && rare.points <= 82);
 
   const duplicate = scoreAnswer({ raw: 'een gerucht', question, peerAnswers: ['een gerucht'] });
   assert.equal(rare.points - duplicate.points, 10);
@@ -90,33 +121,33 @@ test('onbekende antwoorden zijn écht fout: 0 punten en geen pseudo-rarity', () 
   assert.equal(first.notes[0], 'ANTWOORD NIET IN LIJST');
   assert.equal(first.label.key, 'wrong');
   assert.equal(first.label.label, 'Fout');
-  assert.ok(!first.notes.some((note) => /LIST|SOLO|SPECIFIC|DEEP|NEAR MISS/.test(note) && note !== 'ANTWOORD NIET IN LIJST'));
+  assert.ok(!first.notes.some((note) => /SOLO|SPECIFIC|DEEP|GHOST/.test(note)));
 
-  // Ook met medespelers mag een onbekend antwoord geen bonus krijgen.
   const withPeers = scoreAnswer({ raw: 'een rare spinazie', question, peerAnswers: ['ballon'] });
   assert.equal(withPeers.points, 0);
   assert.equal(withPeers.wrong, true);
   assert.ok(!withPeers.notes.includes('SOLO IN ROOM +18'));
 });
 
-test('typo-correctie naar een lijstantwoord scoort als rare', () => {
+test('typo’s en schrijfvormen worden naar het bedoelde antwoord hersteld', () => {
   const los = scoreAnswer({ raw: 'gerucnt', question: typoQuestion });
   assert.equal(los.normalized, 'gerucht');
   assert.equal(los.corrected, 'gerucht');
-  assert.equal(los.points, 82);
-  assert.ok(los.notes.includes('RARE LIST'));
+  assert.ok(los.points >= 55 && los.points <= 82);
 
   const metLidwoord = scoreAnswer({ raw: 'een gerucnt', question });
   assert.equal(metLidwoord.normalized, 'een gerucht');
-  assert.equal(metLidwoord.corrected, 'een gerucht');
-  assert.ok(metLidwoord.points >= 82);
+  assert.equal(metLidwoord.points >= 55, true);
 
-  // Zonder daadwerkelijke correctie blijft `corrected` null.
+  const meervoud = scoreAnswer({ raw: 'balloons', question: { ...typoQuestion, answers: [{ text: 'balloon', tier: 'common', points: 12 }] } });
+  assert.equal(meervoud.wrong, false);
+  assert.equal(meervoud.normalized, 'balloon');
+
   const alreadyRight = scoreAnswer({ raw: 'gerucht', question: typoQuestion });
   assert.equal(alreadyRight.corrected, null);
 });
 
-test('aanvullende regelvelden maken een lijstantwoord alsnog fout', () => {
+test('aanvullende regelvelden maken een herkend antwoord alsnog fout', () => {
   const valid = scoreAnswer({ raw: 'de auto', question: ruleQuestion });
   assert.equal(valid.ok, true);
   assert.ok(valid.points > 0);
@@ -160,28 +191,39 @@ test('validatiefouten krijgen wrong:true, 0 punten en hetzelfde rode label', () 
   }
 });
 
-test('elke vraag in QUESTIONS heeft een listed-regel met hint', () => {
+test('elke vraag heeft een groot, uniek en gewogen antwoordregister', () => {
   assert.ok(QUESTIONS.length > 0);
   for (const item of QUESTIONS) {
     assert.ok(item.rule, `vraag ${item.id} heeft geen rule`);
     assert.equal(item.rule.kind, 'listed', `vraag ${item.id} heeft een onverwacht regeltype`);
     assert.ok(typeof item.rule.hint === 'string' && item.rule.hint.length > 10, `vraag ${item.id} heeft geen bruikbare hint`);
     assert.ok(item.rule.categoryHint, `vraag ${item.id} heeft geen sectorhint`);
-    assert.ok(item.common.length >= 15, `vraag ${item.id} heeft maar ${item.common.length} common-antwoorden`);
-    assert.ok(item.rare.length >= 8, `vraag ${item.id} heeft maar ${item.rare.length} rare-antwoorden`);
-    const keys = [...item.common, ...item.rare].map(normalize);
+    assert.ok(item.answers.length >= 90, `vraag ${item.id} heeft maar ${item.answers.length} antwoorden`);
+    assert.ok(item.common.length >= 20, `vraag ${item.id} heeft maar ${item.common.length} common-antwoorden`);
+    assert.ok(item.rare.length >= 25, `vraag ${item.id} heeft maar ${item.rare.length} rare-antwoorden`);
+    const keys = item.answers.map((entry) => normalize(entry.text));
     assert.equal(new Set(keys).size, keys.length, `vraag ${item.id} heeft dubbele antwoorden`);
+    for (const entry of item.answers) {
+      const [min, max] = RANGES[entry.tier] || RANGES.common;
+      assert.ok(entry.points >= min && entry.points <= max, `vraag ${item.id}: ${entry.text} → ${entry.points}`);
+    }
   }
   assert.equal(MAX_ANSWER_ATTEMPTS, 4);
 });
 
-test('elk antwoord in de uitgebreide lijsten wordt ook echt geaccepteerd', () => {
+test('elk registerantwoord en elke basisvariant wordt geaccepteerd', () => {
   for (const item of QUESTIONS) {
-    for (const raw of [...item.common, ...item.rare]) {
-      const result = scoreAnswer({ raw, question: item, peerAnswers: [] });
-      assert.equal(result.wrong, false, `vraag ${item.id}: "${raw}" → ${result.reason}`);
-      assert.ok(result.points > 0, `vraag ${item.id}: "${raw}" gaf 0 punten`);
+    for (const entry of answerEntries(item)) {
+      const result = scoreAnswer({ raw: entry.text, question: item, peerAnswers: [] });
+      assert.equal(result.wrong, false, `vraag ${item.id}: "${entry.text}" → ${result.reason}`);
+      assert.ok(result.points > 0, `vraag ${item.id}: "${entry.text}" gaf 0 punten`);
     }
+    const probe = answerEntries(item).find((entry) => !/^(een|de|het|the|a|an)\b/.test(entry.text));
+    if (!probe) continue;
+    const variant = answerVariants(probe.text).find((form) => form !== normalize(probe.text));
+    if (!variant) continue;
+    const result = scoreAnswer({ raw: variant, question: item, peerAnswers: [] });
+    assert.equal(result.wrong, false, `vraag ${item.id}: variant "${variant}" → ${result.reason}`);
   }
   assert.equal(answerRule({ category: 'SIGNAL' }).kind, 'listed');
   assert.ok(answerRule({ category: 'SIGNAL' }).categoryHint);
