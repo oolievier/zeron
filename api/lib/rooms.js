@@ -262,7 +262,7 @@ export async function act(payload) {
     // Blob is kort eventual-consistent tussen instanties. Geef een net
     // ingediend antwoord van een andere speler een klein moment om zichtbaar
     // te worden voordat we de ronde afsluiten.
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     return withRoom(normalizedCode, (room, now) => {
       if (room.phase !== 'question') return { write: false };
       if (room.hostId !== playerId && now < room.roundEndsAt) return { error: 403, message: 'Alleen de host kan vervroegd onthullen.' };
